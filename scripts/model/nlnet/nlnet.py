@@ -107,16 +107,16 @@ class NLNet(nn.Module):
             curr_col_num_aggs = 0
             gt_aggs_num = []
 
+            sel_cols = []
             # 遍历每个sel_col
             for i, col in enumerate(truth_num[b][1]):
-                if col != curr_col:
-                    gt_aggs_num.append(curr_col_num_aggs)
-                    curr_col = col
-                    curr_col_num_aggs = 0
+                if col not in sel_cols:
+                    sel_cols.append(col)
+                    gt_aggs_num.append(0)
+                idx = sel_cols.index(col)
                 if truth_num[b][0][i] != 0:
-                    curr_col_num_aggs += 1
+                    gt_aggs_num[idx] += 1
 
-            gt_aggs_num.append(curr_col_num_aggs)
             # print gt_aggs_num
             data = torch.from_numpy(np.array(gt_aggs_num)) #supposed to be gt # of aggs
             if self.gpu:
@@ -125,8 +125,8 @@ class NLNet(nn.Module):
                 agg_num_truth_var = Variable(data)
             # num of the select columns
             agg_num_pred = agg_num_score[b, :truth_num[b][5]] # supposed to be gt # of select columns
-            loss += (self.CE(agg_num_pred, agg_num_truth_var) \
-                    / len(truth_num))
+            temp_loss = self.CE(agg_num_pred, agg_num_truth_var)
+            loss += (temp_loss / len(truth_num))
 
             # loss for sel agg prediction
             T = 6 #num agg ops

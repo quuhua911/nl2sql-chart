@@ -23,6 +23,9 @@ def run_lstm(lstm, inp, inp_len, hidden=None):
     # array[sort_perm_inv] 可获得 sort_perm
     sort_perm_inv = np.argsort(sort_perm)
 
+    if inp.is_cuda:
+        sort_perm = torch.LongTensor(sort_perm).cuda()
+        sort_perm_inv = torch.LongTensor(sort_perm_inv).cuda()
     # pack_padded_sequence(input, lengths, batch_first)
     # input为已经排好序的数组,lengths为降序排列的长度的数组
     lstm_inp = nn.utils.rnn.pack_padded_sequence(inp[sort_perm],
@@ -47,6 +50,8 @@ def col_name_encode(lstm, name_inp_var, name_len, col_len):
     ret = torch.FloatTensor(
         len(col_len), max(col_len), name_out.size()[1]).zero_()
 
+    if name_out.is_cuda:
+        ret = ret.cuda()
     st = 0
     for idx, cur_len in enumerate(col_len):
         ret[idx, :cur_len] = name_out.data[st:st + cur_len]
