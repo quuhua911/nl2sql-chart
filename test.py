@@ -13,6 +13,7 @@ def celoss():
     output = model(x)
     loss = criterion(output, target)
 
-a = [1,1,1]
-for i, col in enumerate(a):
-    print(col)
+a = []
+a.append([])
+a.append("b")
+print(a)

@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.DEBUG,
 if __name__ == '__main__':
     N_word = 300
     B_word = 42
-    TEST = True
+    TEST = False
 
     if TEST:
         FAST = True
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     best_order_acc = init_acc[1][3]
     best_tot_acc = 0.0
 
-    for i in range(100):
+    for i in range(300):
         logging.info('Epoch %d @ %s' % (i+1, datetime.datetime.now()))
 
         loss = epoch_train(model, optimizer, BATCH_SIZE, sql_data, table_data, schemas, TRAIN_ENTRY)

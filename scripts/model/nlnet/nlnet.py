@@ -102,9 +102,6 @@ class NLNet(nn.Module):
         # for one batch
         for b in range(len(truth_num)):
             # 涉及到的第一列
-            curr_col = truth_num[b][1][0]
-
-            curr_col_num_aggs = 0
             gt_aggs_num = []
 
             sel_cols = []
@@ -125,26 +122,35 @@ class NLNet(nn.Module):
                 agg_num_truth_var = Variable(data)
             # num of the select columns
             agg_num_pred = agg_num_score[b, :truth_num[b][5]] # supposed to be gt # of select columns
+
+            if agg_num_pred.size()[0] != agg_num_truth_var.size()[0]:
+                print(truth_num[b])
+
             temp_loss = self.CE(agg_num_pred, agg_num_truth_var)
             loss += (temp_loss / len(truth_num))
 
             # loss for sel agg prediction
             T = 6 #num agg ops
+            # ( B , T ) -> ( unique 的被选中的col数目, 可能的op情况 )
+            # 类似onehot的一个列表
             truth_prob = np.zeros((truth_num[b][5], T), dtype=np.float32)
+            # [ [被选中行的agg op情况,即curr_sel_aggs] [] ]
             gt_agg_by_sel = []
-            curr_sel_aggs = []
-            curr_col = truth_num[b][1][0]
-            col_counter = 0
+
+            sel_cols = []
             for i, col in enumerate(truth_num[b][1]):
-                if col != curr_col:
-                    gt_agg_by_sel.append(curr_sel_aggs)
-                    curr_col = col
-                    col_counter += 1
-                    curr_sel_aggs = [truth_num[b][0][i]]
-                    truth_prob[col_counter][curr_sel_aggs] = 1
-                else:
-                    curr_sel_aggs.append(truth_num[b][0][i])
-                    truth_prob[col_counter][curr_sel_aggs] = 1
+                if col not in sel_cols:
+                    sel_cols.append(col)
+                    gt_agg_by_sel.append([])
+                idx = sel_cols.index(col)
+                curr_agg = truth_num[b][0][i]
+                curr_sel_aggs = gt_agg_by_sel[idx]
+                if curr_agg not in curr_sel_aggs:
+                    curr_sel_aggs.append(curr_agg)
+
+            for i, col in enumerate(gt_agg_by_sel):
+                truth_prob[i][gt_agg_by_sel[i]] = 1
+
             data = torch.from_numpy(truth_prob)
             if self.gpu:
                 agg_op_truth_var = Variable(data.cuda())
@@ -807,19 +813,15 @@ class NLNet(nn.Module):
                 sel_flag = False
 
             agg_gt = gt_qry['agg']
-            curr_col = gt_qry['sel'][0]
-            curr_col_num_agg = 0
             gt_aggs_num = []
-            gt_sel_order = [curr_col]
+            sel_cols = []
             for i, col in enumerate(gt_qry['sel']):
-                if col != curr_col:
-                    gt_sel_order.append(col)
-                    gt_aggs_num.append(curr_col_num_agg)
-                    curr_col = col
-                    curr_col_num_agg =0
+                if col not in sel_cols:
+                    sel_cols.append(col)
+                    gt_aggs_num.append(0)
+                idx = sel_cols.index(col)
                 if agg_gt[i] != 0:
-                    curr_col_num_agg += 1
-            gt_aggs_num.append(curr_col_num_agg)
+                    gt_aggs_num[idx] += 1
 
             if gt_aggs_num != pred_qry['agg_num']:
                 agg_num_err += 1
