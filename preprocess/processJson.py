@@ -1,8 +1,8 @@
 # coding = utf-8
 import json
 
-source_file = "./data/dev.json"
-target_file = "./data/processedDev.json"
+source_file = "./data/train.json"
+target_file = "./data/processedTrain.json"
 
 # 打开json文件, 进行遍历
 def load_datafile(file_dir):
@@ -26,26 +26,33 @@ def load_datafile(file_dir):
 def process_json(file_data):
     processed_num = 0
     processed_list = []
+    qry_before = None
     for idx, qry in enumerate(file_data):
         # 显示对应的sql语句
-        print("The question is:" + qry["question"]+"\n")
-        print("The query is:" + qry["query"]+"\n")
-
-        type_of_chart = input("type:\n")
-        x_col = input("x_col:\n")
-        y_col = input("y_col:\n")
-
-        qry["type_of_chart"] = type_of_chart
-        qry["x_col"] = x_col
-        qry["y_col"] = y_col
-
+        print("The question is:" + qry["question"] + "\n")
+        print("The query is:" + qry["query"] + "\n")
+        if qry_before != None and qry['query'] == qry_before['query']:
+            print("Same query!\n")
+            qry['type_of_chart'] = qry_before['type_of_chart']
+            qry["x_col"] = qry_before['x_col']
+            qry["y_col"] = qry_before['y_col']
+        else:
+            type_of_chart = input("type:")
+            if type_of_chart != '1' and type_of_chart != '2':
+                x_col = 0
+                y_col = 0
+            else:
+                x_col = input("x_col:")
+                y_col = input("y_col:")
+            qry["type_of_chart"] = type_of_chart
+            qry["x_col"] = x_col
+            qry["y_col"] = y_col
+        qry_before = qry
         processed_list.append(qry)
         processed_num += 1
 
         print(str(len(file_data)-processed_num)+" sqls left\n")
 
-        if idx == 1:
-            break
     print("Finished!")
     return processed_list
 

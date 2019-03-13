@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 from flask import Flask, request
 from flask_cors import *
 #from backend import model, prediction

@@ -1,7 +1,8 @@
+# -*- coding: UTF-8 -*-
 import torch
 import numpy as np
 import torch.nn as nn
-from scripts.model.nlnet.modules.net_utils import run_lstm, col_name_encode
+from scripts.net_utils import run_lstm, col_name_encode
 
 
 class CondPredictor(nn.Module):

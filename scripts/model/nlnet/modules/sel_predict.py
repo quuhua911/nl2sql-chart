@@ -1,9 +1,9 @@
-# coding=UTF-8
+# -*- coding: UTF-8 -*-
 
 import torch
 import torch.nn as nn
 import numpy as np
-from scripts.model.nlnet.modules.net_utils import run_lstm, col_name_encode
+from scripts.net_utils import run_lstm, col_name_encode
 
 class SelPredictor(nn.Module):
     # N_h 隐藏元维数

@@ -1,6 +1,7 @@
+# -*- coding: UTF-8 -*-
 import torch
 import torch.nn as nn
-from scripts.model.nlnet.modules.net_utils import run_lstm, col_name_encode
+from scripts.net_utils import run_lstm, col_name_encode
 
 
 class GroupPredictor(nn.Module):

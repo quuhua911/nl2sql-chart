@@ -1,5 +1,4 @@
-# coding=UTF-8
-
+# -*- coding: UTF-8 -*-
 import torch
 import traceback
 import torch.nn as nn
