@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.DEBUG,
 if __name__ == '__main__':
     N_word = 300
     B_word = 42
-    TEST = False
+    TEST = True
 
     if TEST:
         FAST = True

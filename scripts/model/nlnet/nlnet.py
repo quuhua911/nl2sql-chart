@@ -366,6 +366,18 @@ class NLNet(nn.Module):
         loss += self.CE(ody_par_score, ody_par_truth_var)
         return loss
 
+    def find_shortest_path(self, start, end, graph):
+        stack = [[start, []]]
+        visited = set()
+        while len(stack) > 0:
+            ele, history = stack.pop()
+            if ele == end:
+                return history
+            for node in graph[ele]:
+                if node[0] not in visited:
+                    stack.append((node[0], history + [(node[0], node[1])]))
+                    visited.add(node[0])
+
     def gen_query(self, score, q, col, raw_q, raw_col, pred_entry, verbose=False):
         sel_score, cond_score, group_score, order_score = score
 

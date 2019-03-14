@@ -20,10 +20,15 @@ app.config['SQLALCHEMY_DATABASE_URI'] = "mssql+pyodbc:///?odbc_connect=%s" % par
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 
 '''
-
+#app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../database/concert_singer/concert_singer.sqlite'
+#app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
+#db = SQLAlchemy(app)
+#db.init_app(app)
 
 def createDB(dbName):
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../database/' + dbName + "/" + dbName + ".sqlite"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
     db = SQLAlchemy(app)
+    # 挂载服务器所需设置
+    db.init_app(app)
     return db

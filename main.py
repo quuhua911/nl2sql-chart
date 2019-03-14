@@ -2,12 +2,15 @@
 
 from flask import Flask, request
 from flask_cors import *
+from flask_sqlalchemy import SQLAlchemy
 #from backend import model, prediction
 from backend import prediction
+from backend.dbinfo import app
 import json
 
-app = Flask(__name__)
+# app = Flask(__name__)
 CORS(app, supports_credentials=True)
+
 
 # 建表
 # db.create_all()
@@ -96,11 +99,11 @@ def for_test():
 if __name__ == '__main__':
 
     # test = for_test()
-    #app.run()
+    app.run()
 
     # resultEnd = prediction.predict_sql("./testData.json")
 
-    predicted_sql = prediction.predict_sql_from_seq("How many singers do we have?", "concert_singer")
+    #predicted_sql = prediction.predict_sql_from_seq("How many singers do we have?", "concert_singer")
 
     # all for debug
     # debug1 = prediction.predict_sql("./testData.json")

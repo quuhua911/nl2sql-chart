@@ -283,7 +283,7 @@ def print_results(model, batch_size, sql_data, table_data, output_file, schemas,
     st = 0
     one_acc_num = 0.0
     tot_acc_num = 0.0
-    output =  open(output_file, 'w')
+    output = open(output_file, 'w')
     while st < len(sql_data):
         ed = st+batch_size if st+batch_size < len(perm) else len(perm)
         q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq,\
