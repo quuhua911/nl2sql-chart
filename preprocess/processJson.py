@@ -2,7 +2,7 @@
 import json
 
 source_file = "./data/train.json"
-target_file = "./data/processedTrain.json"
+target_file = "./data/train.json"
 
 # 打开json文件, 进行遍历
 def load_datafile(file_dir):

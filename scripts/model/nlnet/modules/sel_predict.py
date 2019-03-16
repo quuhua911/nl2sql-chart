@@ -17,6 +17,7 @@ class SelPredictor(nn.Module):
 
         # Encoding
         # Query word embedding
+        # 因为是双向lstm, 需要将hidden_size/2
         self.q_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                               num_layers=N_depth, batch_first=True,
                               dropout=0.3, bidirectional=True)
@@ -90,7 +91,8 @@ class SelPredictor(nn.Module):
             bmm 实现对于batch的矩阵乘法
             transpose 实现转置
         '''
-        att_val_qc_num = torch.bmm(col_enc, self.q_num_att(q_enc).transpose(1, 2))
+        temp = self.q_num_att(q_enc).transpose(1, 2)
+        att_val_qc_num = torch.bmm(col_enc, temp)
 
         # 将未满足最大长度的部分做消去处理
         for idx, num in enumerate(col_len):
@@ -103,15 +105,18 @@ class SelPredictor(nn.Module):
 
         # view()中-1代表自动计算行/列数，一个view函数只能有一个-1参数
         # 三维用(-1,x)表示一二维合并
-        # TODO:直接softmax(...(B,-1,max_q_len))和下述方法的区别
+        # TODO(closed):直接softmax(...(B,-1,max_q_len))和下述方法的区别 : 后者进行了一次重排
+        # TODO: 基于 max_q_len softmax的原因?
         # softmax 应用于 q_len 即可
-        qc_num_softmax = self.softmax(att_val_qc_num.view((-1, max_q_len)))
+        combine_temp = att_val_qc_num.view((-1, max_q_len))
+        qc_num_softmax = self.softmax(combine_temp)
         # 复原
         att_prob_qc_num = qc_num_softmax.view(B, -1, max_q_len)
 
         # q_weighted_num: (B, hid_dim)
         # squeeze(num)/unsqueeze(num) 消除idx为num的维数,该维数必须为1否则函数没有效果
         mul_enc_att = (q_enc.unsqueeze(1) * att_prob_qc_num.unsqueeze(3))
+
         temp_sum = mul_enc_att.sum(2)
         q_weighted_num = temp_sum.sum(1)
 

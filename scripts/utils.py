@@ -84,6 +84,7 @@ def load_word_emb(file, FAST=True):
 def load_dataset(dataset, FAST=True):
     print("Loading from datasets...")
     dir = dataset
+    # train.json
     TABLE_DIR = os.path.join(dir, "tables.json")
     TRAIN_DIR = os.path.join(dir, "train.json")
     DEV_DIR = os.path.join(dir, "dev.json")
@@ -145,6 +146,10 @@ def format_dataset(dataset_origin_data, table_origin_data):
         query = dataset_origin_data[i]
         temp={}
 
+        if "type_of_chart" in query:
+            temp["type_of_chart"] = query["type_of_chart"]
+            temp["x_col"] = query["x_col"]
+            temp["y_col"] = query["y_col"]
         # 单个data基本信息
         temp['question'] = query["question"]
         temp['query'] = query['query']
@@ -421,7 +426,21 @@ def epoch_acc(model, batch_size, sql_data, table_data, schemas, pred_entry, erro
         raw_q_seq = [x[0] for x in raw_data]
         raw_col_seq = [x[1] for x in raw_data]
         query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
+
+        sel_col_seq = []
+        sel_col_num = []
+        for idx in range(len(col_seq)):
+            curr_sel = ans_seq[idx][1]
+            curr_table = col_seq[idx]
+            curr_sel_col = [[ans_seq[idx][0][i], curr_table[x]] for i, x in enumerate(curr_sel)]
+            sel_col_seq.append(curr_sel_col)
+            sel_col_num.append(len(curr_sel_col))
+
         score = model.forward(q_seq, col_seq, col_num, pred_entry)
+
+        #if model.__name__ == "chartNet":
+        #    score = model.forward(q_seq, sel_col_seq, col_num, pred_entry)
+
         pred_queries = model.gen_query(score, q_seq, col_seq, raw_q_seq, raw_col_seq, pred_entry)
 
         one_err, tot_err = model.check_acc(raw_data, pred_queries, query_gt, pred_entry, error_print)

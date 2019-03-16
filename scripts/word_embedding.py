@@ -8,7 +8,7 @@ import numpy as np
 
 
 class WordEmbedding(nn.Module):
-    def __init__(self, word_emb, N_word, gpu, SQL_TOK):
+    def __init__(self, word_emb, N_word, gpu, SQL_TOK = None):
         super(WordEmbedding, self).__init__()
 
         self.N_word = N_word

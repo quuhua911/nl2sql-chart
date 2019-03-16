@@ -1,18 +1,20 @@
 import torch
 import torch.nn as nn
 from scripts.word_embedding import WordEmbedding
-class chartNet(nn.module):
+from scripts.model.chartnet.modules.chart_predict import ChartPredictor
+
+
+class chartNet(nn.Module):
     def __init__(self, word_emb, N_word, N_h=120, N_depth=2, gpu=False):
         super(chartNet, self).__init__()
 
         self.gpu = gpu
         self.N_word = N_word
         self.N_h = N_h
-        self.N_depth =N_depth
+        self.N_depth = N_depth
 
         self.embed_layer = WordEmbedding(word_emb, N_word, gpu)
-
-        self.chart_pred = ChartPredictor(N_word, N_h, N_depth)
+        self.chart_pred = ChartPredictor(N_word, N_h, N_depth, gpu)
 
         self.CE = nn.CrossEntropyLoss()
         self.softmax = nn.Softmax(dim=1)
