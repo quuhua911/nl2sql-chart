@@ -9,7 +9,7 @@ from scripts.model.chartnet.chartnet import chartNet
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
-                    filename='../../../log/train.log',
+                    filename='log/chart-train.log',
                     filemode='w')
 
 if __name__ == '__main__':
@@ -31,13 +31,13 @@ if __name__ == '__main__':
 
     learning_rate = 1e-3
 
-    file_dir = "../../../data/processed/"
+    file_dir = "data/processed/"
 
     sql_data, table_data, val_sql_data, val_table_data, \
     test_sql_data, test_table_data, schemas, \
     TRAIN_DB, DEV_DB, TEST_DB = load_dataset(file_dir, FAST=FAST)
 
-    word_emb = load_word_emb('../../../glove/glove.%dB.%dd.txt' % (B_word, N_word), FAST=FAST)
+    word_emb = load_word_emb('glove/glove.%dB.%dd.txt' % (B_word, N_word), FAST=FAST)
 
     model = chartNet(word_emb, N_word=N_word, gpu=GPU)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0)
@@ -71,7 +71,7 @@ if __name__ == '__main__':
             best_x_acc = val_par_acc[1]
             best_y_acc = val_par_acc[2]
             logging.info("Saving chart model...")
-            torch.save(model.chart_pred.state_dict(), "../../../test_saved_models/sel_models.dump")
+            torch.save(model.chart_pred.state_dict(), "test_saved_models/sel_models.dump")
         if val_tot_acc > best_tot_acc:
             best_tot_acc = val_tot_acc
 

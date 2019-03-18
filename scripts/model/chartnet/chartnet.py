@@ -68,7 +68,7 @@ class chartNet(nn.Module):
         y_pred = []
 
         # 消除type为0时的x/y情况
-        '''
+
         for idx, type in enumerate(temp_truth):
             if type == 0:
                 continue
@@ -79,8 +79,7 @@ class chartNet(nn.Module):
 
         x_pred = torch.tensor(x_pred, dtype=torch.float32)
         y_pred = torch.tensor(y_pred, dtype=torch.float32)
-        
-        
+
         data = torch.from_numpy(np.array(x_truth))
         if self.gpu:
             x_truth_var = Variable(data.cuda())
@@ -95,7 +94,7 @@ class chartNet(nn.Module):
         else:
             y_truth_var = Variable(data)
         loss = loss + self.CE(y_pred, y_truth_var)
-        '''
+
         return loss
 
     def gen_list(self, score, sql, col, col_agg):
