@@ -40,6 +40,8 @@ class SelPredictor(nn.Module):
         self.q_att = nn.Linear(N_h, N_h)
         self.col_out_q = nn.Linear(N_h, N_h)
         self.col_out_c = nn.Linear(N_h, N_h)
+
+        # 最后是输出维数是1 , 因此可通过squeeze消去
         self.col_out = nn.Sequential(nn.Tanh(), nn.Linear(N_h, 1))
 
         # agg数目部分

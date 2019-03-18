@@ -44,10 +44,10 @@ if __name__ == '__main__':
 
     init_acc = epoch_acc(model, BATCH_SIZE, val_sql_data, val_table_data, schemas, TRAIN_ENTRY)
 
-    best_sel_acc = init_acc[1][0]
-    best_cond_acc = init_acc[1][1]
-    best_group_acc = init_acc[1][2]
-    best_order_acc = init_acc[1][3]
+    best_type_acc = init_acc[1][0]
+    best_x_acc = init_acc[1][1]
+    best_y_acc = init_acc[1][2]
+    #best_order_acc = init_acc[1][3]
     best_tot_acc = 0.0
 
     for i in range(300):
@@ -59,29 +59,19 @@ if __name__ == '__main__':
         train_tot_acc, train_par_acc = epoch_acc(model, BATCH_SIZE, sql_data, table_data, schemas, TRAIN_ENTRY)
         logging.info('Train acc_qm: %s' % train_tot_acc)
 
-        logging.info('Train parts acc: sel: %s, cond: %s, group: %s, order: %s' % (train_par_acc[0], train_par_acc[1], train_par_acc[2], train_par_acc[3]))
+        logging.info('Train parts acc: type: %s, x_col: %s, y_col: %s' % (train_par_acc[0], train_par_acc[1], train_par_acc[2]))
 
         val_tot_acc, val_par_acc = epoch_acc(model, BATCH_SIZE, val_sql_data, val_table_data, schemas, TRAIN_ENTRY, error_print=False)
         logging.info('Vak acc_qm: %s' % val_tot_acc)
 
-        logging.info('Val parts acc: sel: %s, cond: %s, group: %s, order: %s' % (val_par_acc[0], val_par_acc[1], val_par_acc[2], val_par_acc[3]))
+        logging.info('Val parts acc: type: %s, x_col: %s, y_col: %s' % (val_par_acc[0], val_par_acc[1], val_par_acc[2]))
 
-        if val_par_acc[0] > best_sel_acc:
-            best_sel_acc = val_par_acc[0]
-            logging.info("Saving sel model...")
-            torch.save(model.sel_pred.state_dict(), "test_saved_models/sel_models.demp")
-        if val_par_acc[1] > best_cond_acc:
-            best_cond_acc = val_par_acc[1]
-            logging.info("Saving cond model...")
-            torch.save(model.cond_pred.state_dict(), "test_saved_models/cond_models.dump")
-        if val_par_acc[2] > best_group_acc:
-            best_group_acc = val_par_acc[2]
-            logging.info("Saving group model...")
-            torch.save(model.group_pred.state_dict(), "test_saved_models/group_models.dump")
-        if val_par_acc[3] > best_order_acc:
-            best_order_acc = val_par_acc[3]
-            logging.info("Saving order model...")
-            torch.save(model.order_pred.state_dict(), "test_saved_models/order_models.dump")
+        if val_par_acc[0] > best_type_acc or val_par_acc[1] > best_x_acc or val_par_acc[2] > best_y_acc:
+            best_type_acc = val_par_acc[0]
+            best_x_acc = val_par_acc[1]
+            best_y_acc = val_par_acc[2]
+            logging.info("Saving chart model...")
+            torch.save(model.chart_pred.state_dict(), "../../../test_saved_models/sel_models.dump")
         if val_tot_acc > best_tot_acc:
             best_tot_acc = val_tot_acc
 

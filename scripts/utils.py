@@ -332,7 +332,7 @@ def to_input_seq(sql, table_data, schemas):
 def to_batch_query(sql_data, perm, st, ed):
     query_gt = []
     table_ids = []
-    for i in range(len(sql_data)):
+    for i in range(st, ed):
         query_gt.append(sql_data[perm[i]])
         table_ids.append(sql_data[perm[i]]['table_id'])
     return query_gt, table_ids
@@ -398,9 +398,28 @@ def epoch_train(model, optimizer, batch_size, sql_data, table_data, schemas, pre
         q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, col_org_seq, schema_seq = \
             to_batch_seq(sql_data, table_data, perm, st, ed, schemas)
         gt_sel_seq = [x[1] for x in ans_seq]
-        score = model.forward(q_seq, col_seq, col_num, pred_entry, gt_cond=gt_cond_seq, gt_sel=gt_sel_seq)
-        loss = model.loss(score, ans_seq, pred_entry)
-        cum_loss += loss.data.cpu().numpy().tolist() * (ed - st)
+
+        query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
+
+        sel_col_seq = []
+        sel_col_agg = []
+        sel_col_num = []
+        for idx in range(len(col_seq)):
+            curr_sel = ans_seq[idx][1]
+            curr_table = col_seq[idx]
+            curr_sel_col = [curr_table[x] for x in curr_sel]
+            curr_sel_agg = [ans_seq[idx][0][i] for i, x in enumerate(curr_sel)]
+            sel_col_seq.append(curr_sel_col)
+            sel_col_agg.append(curr_sel_agg)
+            sel_col_num.append(len(curr_sel_col))
+
+        if type(model).__name__ == 'chartNet':
+            score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num, pred_entry)
+            loss = model.loss(score, query_gt)
+        else:
+            score = model.forward(q_seq, col_seq, col_num, pred_entry, gt_cond=gt_cond_seq, gt_sel=gt_sel_seq)
+            loss = model.loss(score, ans_seq, pred_entry)
+        cum_loss = cum_loss + loss.data.cpu().numpy().tolist() * (ed - st)
 
         optimizer.zero_grad()
         loss.backward()
@@ -418,7 +437,7 @@ def epoch_acc(model, batch_size, sql_data, table_data, schemas, pred_entry, erro
     one_acc_num = 0.0
     tot_acc_num = 0.0
     while st < len(sql_data):
-        ed = st + batch_size if st+batch_size<len(perm) else len(perm)
+        ed = st + batch_size if st+batch_size < len(perm) else len(perm)
         q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, \
         raw_data, col_org_seq, schema_seq = \
             to_batch_seq(sql_data, table_data, perm, st, ed, schemas, ret_vis_data=True)
@@ -428,22 +447,25 @@ def epoch_acc(model, batch_size, sql_data, table_data, schemas, pred_entry, erro
         query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
 
         sel_col_seq = []
+        sel_col_agg = []
         sel_col_num = []
         for idx in range(len(col_seq)):
             curr_sel = ans_seq[idx][1]
             curr_table = col_seq[idx]
-            curr_sel_col = [[ans_seq[idx][0][i], curr_table[x]] for i, x in enumerate(curr_sel)]
+            curr_sel_col = [curr_table[x] for x in curr_sel]
+            curr_sel_agg = [ans_seq[idx][0][i] for i, x in enumerate(curr_sel)]
             sel_col_seq.append(curr_sel_col)
+            sel_col_agg.append(curr_sel_agg)
             sel_col_num.append(len(curr_sel_col))
 
-        score = model.forward(q_seq, col_seq, col_num, pred_entry)
-
-        #if model.__name__ == "chartNet":
-        #    score = model.forward(q_seq, sel_col_seq, col_num, pred_entry)
-
-        pred_queries = model.gen_query(score, q_seq, col_seq, raw_q_seq, raw_col_seq, pred_entry)
-
-        one_err, tot_err = model.check_acc(raw_data, pred_queries, query_gt, pred_entry, error_print)
+        if type(model).__name__ == "chartNet":
+            score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num, pred_entry)
+            pred_list = model.gen_list(score, query_seq, sel_col_seq, sel_col_agg)
+            one_err, tot_err = model.check_acc(pred_list, query_gt, error_print)
+        else:
+            score = model.forward(q_seq, col_seq, col_num, pred_entry)
+            pred_queries = model.gen_query(score, q_seq, col_seq, raw_q_seq, raw_col_seq, pred_entry)
+            one_err, tot_err = model.check_acc(raw_data, pred_queries, query_gt, pred_entry, error_print)
 
         one_acc_num += (ed-st-one_err)
         tot_acc_num += (ed-st-tot_err)
