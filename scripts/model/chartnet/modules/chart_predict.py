@@ -48,7 +48,7 @@ class ChartPredictor(nn.Module):
         if gpu:
             self.cuda()
 
-    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_name_len, gt_set):
+    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_name_len):
         max_q_len = max(q_len)
         max_col_len = max(col_len)
 

@@ -4,7 +4,7 @@ import datetime
 import argparse
 import numpy as np
 from scripts.utils import *
-from scripts.model.nlnet.nlnet import NLNet
+from scripts.model.chartnet.chartnet import chartNet
 
 
 if __name__ == '__main__':
@@ -34,16 +34,10 @@ if __name__ == '__main__':
     # 加载预训练的word embedding
     word_emb = load_word_emb('glove/glove.%dB.%dd.txt' % (B_word, N_word), FAST=FAST)
 
-    model = NLNet(word_emb, N_word=N_word, gpu=GPU)
+    model = chartNet(word_emb, N_word=N_word, gpu=GPU)
 
-    print("Loading from sel model...")
-    model.sel_pred.load_state_dict(torch.load(saved_models_dir + "sel_models.dump", map_location='cpu'))
-    print("Loading from cond model...")
-    model.cond_pred.load_state_dict(torch.load(saved_models_dir + "cond_models.dump", map_location='cpu'))
-    print("Loading from group model...")
-    model.group_pred.load_state_dict(torch.load(saved_models_dir + "group_models.dump", map_location='cpu'))
-    print("Loading from order model...")
-    model.order_pred.load_state_dict(torch.load(saved_models_dir + "order_models.dump", map_location='cpu'))
+    print("Loading from chart model...")
+    model.chart_pred.load_state_dict(torch.load(saved_models_dir + "chart_models.dump", map_location='cpu'))
 
-    output = "output.txt"
+    output = "chart_output.txt"
     print_results(model, BATCH_SIZE, test_sql_data, test_table_data, output, schemas, TEST_ENTRY)

@@ -83,23 +83,16 @@ def read_message():
 def for_test():
     user_input = "123"
     db_id = "concert_singer"
-    # sql = prediction.predict_sql
-    sql = "select * from singer"
 
-    # (x_col, y_col, type) = prediction.predict_charts
-    x_col = 1
-    y_col = 5
-    types = 1
-
-    result = prediction.get_final_from_seq(user_input, db_id, sql, x_col, y_col, types)
+    result = prediction.get_final_from_seq(user_input, db_id)
     print(result)
     return json.dumps(result)
 
 
 if __name__ == '__main__':
 
-    # test = for_test()
-    app.run()
+    test = for_test()
+    # app.run()
 
     # resultEnd = prediction.predict_sql("./testData.json")
 

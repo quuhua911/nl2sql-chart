@@ -47,7 +47,6 @@ if __name__ == '__main__':
     best_type_acc = init_acc[1][0]
     best_x_acc = init_acc[1][1]
     best_y_acc = init_acc[1][2]
-    #best_order_acc = init_acc[1][3]
     best_tot_acc = 0.0
 
     for i in range(300):
@@ -71,9 +70,9 @@ if __name__ == '__main__':
             best_x_acc = val_par_acc[1]
             best_y_acc = val_par_acc[2]
             logging.info("Saving chart model...")
-            torch.save(model.chart_pred.state_dict(), "test_saved_models/sel_models.dump")
+            torch.save(model.chart_pred.state_dict(), "test_saved_models/chart_models.dump")
         if val_tot_acc > best_tot_acc:
             best_tot_acc = val_tot_acc
 
-        logging.info(' Best val sel = %s, cond = %s, group = %s, order = %s, tot = %s' % (best_sel_acc, best_cond_acc, best_group_acc, best_order_acc, best_tot_acc))
+        logging.info(' Best tot = %s' % best_tot_acc)
 

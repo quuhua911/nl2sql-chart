@@ -16,8 +16,12 @@ import os
     sql:
 '''
 
+def load_data_for_chart(seq, FAST=True):
+    tokens = nltk.word_tokenize(seq)
+    return tokens
 
-def load_test_seq(seq, db_id, FAST=True):
+
+def load_data_for_seq(seq, db_id, FAST=True):
     # with open(seq) as seq_inf:
     #   seq_json = json.load(seq_inf)
     tokens = nltk.word_tokenize(seq)
@@ -281,7 +285,6 @@ def format_dataset(dataset_origin_data, table_origin_data):
 
     return sqls, table_cols
 
-
 def print_results(model, batch_size, sql_data, table_data, output_file, schemas, pred_entry, error_print=False, train_flag = False):
     model.eval()
     perm = list(range(len(sql_data)))
@@ -300,18 +303,32 @@ def print_results(model, batch_size, sql_data, table_data, output_file, schemas,
         st = ed
 
 
-def print_input_result(model, batch_size, sql_data, table_data, output_file, schemas, pred_entry, error_print=False, train_flag = False):
+def print_one_chart(model, query_seq, sel_col_seq, sel_col_agg, sel_col_num, output_file):
     model.eval()
-    output =  open(output_file, 'w')
+    output = open(output_file, 'w')
+    score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num)
+    chart = model.gen_chart_info(score, query_seq, sel_col_seq, sel_col_agg)
 
-    q_seq, col_seq, col_num, col_org_seq, schema_seq = to_input_seq(sql_data, table_data, schemas)
+    for chart_info in chart:
+        output.write(str(chart_info["type"]) + " "
+                     + str(chart_info["x_col"]) + " "
+                     + str(chart_info["y_col"]) + "\n")
+    return chart
+
+
+def print_one_result(model, sql_data, table_data, output_file, schemas, pred_entry):
+    model.eval()
+    output = open(output_file, 'w')
+
+    q_seq, col_seq, col_num, col_org_seq, schema_seq = to_one_seq(sql_data, table_data, schemas)
     score = model.forward(q_seq, col_seq, col_num, pred_entry)
     gen_sqls = model.gen_sql(score, col_org_seq, schema_seq)
     for sql in gen_sqls:
         output.write(sql+"\n")
+    return gen_sqls
 
 
-def to_input_seq(sql, table_data, schemas):
+def to_one_seq(sql, table_data, schemas):
     q_seq = []
     col_seq = []
     col_num = []
@@ -459,8 +476,8 @@ def epoch_acc(model, batch_size, sql_data, table_data, schemas, pred_entry, erro
             sel_col_num.append(len(curr_sel_col))
 
         if type(model).__name__ == "chartNet":
-            score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num, pred_entry)
-            pred_list = model.gen_list(score, query_seq, sel_col_seq, sel_col_agg)
+            score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num)
+            pred_list = model.gen_chart_info(score, query_seq, sel_col_seq, sel_col_agg)
             one_err, tot_err = model.check_acc(pred_list, query_gt, error_print)
         else:
             score = model.forward(q_seq, col_seq, col_num, pred_entry)

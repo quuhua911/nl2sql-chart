@@ -23,6 +23,7 @@ def load_datafile(file_dir):
     return file_data
 
 
+
 def process_json(file_data):
     processed_num = 0
     processed_list = []

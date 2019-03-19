@@ -8,6 +8,7 @@ from scripts.model.nlnet.modules.sel_predict import SelPredictor
 from scripts.model.chartnet.modules.chart_predict import ChartPredictor
 
 
+AGG_OPS = ['none', 'max', 'min', 'count', 'sum', 'avg']
 class chartNet(nn.Module):
     def __init__(self, word_emb, N_word, N_h=120, N_depth=2, gpu=False):
         super(chartNet, self).__init__()
@@ -28,14 +29,14 @@ class chartNet(nn.Module):
         if gpu:
             self.cuda()
 
-    def forward(self, q, col, col_agg, col_num, pred_entry, gt_cond=None, gt_sel=None):
+    def forward(self, q, col, col_agg, col_num):
         B = len(q)
 
         # todo:encode the agg
         x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col)
         col_inp_var, col_name_len, col_len = self.embed_layer.gen_col_batch(col)
 
-        chart_score = self.chart_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len, gt_sel)
+        chart_score = self.chart_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len)
 
         return chart_score
 
@@ -97,7 +98,7 @@ class chartNet(nn.Module):
 
         return loss
 
-    def gen_list(self, score, sql, col, col_agg):
+    def gen_chart_info(self, score, sql, col, col_agg):
         type_score, x_col_score, y_col_score = score
 
         type_score_c = type_score.data.cpu().numpy()

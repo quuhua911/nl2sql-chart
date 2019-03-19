@@ -69,7 +69,7 @@ if __name__ == '__main__':
         if val_par_acc[0] > best_sel_acc:
             best_sel_acc = val_par_acc[0]
             logging.info("Saving sel model...")
-            torch.save(model.sel_pred.state_dict(), "test_saved_models/sel_models.demp")
+            torch.save(model.sel_pred.state_dict(), "test_saved_models/sel_models.dump")
         if val_par_acc[1] > best_cond_acc:
             best_cond_acc = val_par_acc[1]
             logging.info("Saving cond model...")
