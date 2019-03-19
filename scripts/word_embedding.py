@@ -18,7 +18,7 @@ class WordEmbedding(nn.Module):
         self.word_emb = word_emb
 
     # 处理自然语言的q， 获得对应的Embedding
-    def gen_x_batch(self, q, col):
+    def gen_x_batch(self, q, col, is_list=False, is_q=False):
         B = len(q)
         val_embs = []
 
@@ -36,37 +36,56 @@ class WordEmbedding(nn.Module):
 
         temp = zip(q, col)
         for i, (one_q, one_col) in enumerate(temp):
-            q_val = []
-            # 句粒度
-            for ws in one_q:
-                emb_list = []
-                ws_len = len(ws)
-                # 词粒度
-                for w in ws:
-                    emb_list.append(self.word_emb.get(w, np.zeros(self.N_word, dtype=np.float32)))
-                if ws_len == 0:
-                    raise Exception("word list shouldn't be empty!")
-                else:
-                    # 取嵌入的均值
-                    emb_list_without_map = []
-                    for emb in emb_list:
-                        emb_from_ndarray = emb.tolist()
-                        temp = []
-                        for item in emb_from_ndarray:
-                            temp.append(item)
+            if not is_list:
+                q_val = map(lambda x: self.word_emb.get(x, np.zeros(self.N_word, dtype=np.float32)), one_q)
+            else:
+                q_val = []
+                # 句粒度
+                for ws in one_q:
+                    emb_list = []
+                    ws_len = len(ws)
+                    # 词粒度
+                    for w in ws:
+                        emb_list.append(self.word_emb.get(w, np.zeros(self.N_word, dtype=np.float32)))
+                    if ws_len == 0:
+                        raise Exception("word list shouldn't be empty!")
+                    else:
+                        # 取嵌入的均值
+                        emb_list_without_map = []
+                        for emb in emb_list:
+                            emb_from_ndarray = emb.tolist()
+                            temp = []
+                            for item in emb_from_ndarray:
+                                temp.append(item)
 
-                        # todo : 遍历map后迭代器内容为空
-                        if len(temp) != 0:
-                            emb_list_without_map.append(temp)
+                            # todo : 遍历map后迭代器内容为空
+                            if len(temp) != 0:
+                                emb_list_without_map.append(temp)
 
-                    emb_sum = np.sum(emb_list_without_map, axis=0)
-                    theType = type(emb_sum).__name__
-                    if theType == 'float64':
-                        emb_sum = np.zeros(self.N_word, dtype=np.float32).tolist()
-                    emb_avg = list(map(lambda x: x/float(ws_len), emb_sum))
-                    q_val.append(emb_avg)
-            val_embs.append(q_val)
-            val_len[i] = len(q_val)
+                        emb_sum = np.sum(emb_list_without_map, axis=0)
+                        theType = type(emb_sum).__name__
+                        if theType == 'float64':
+                            emb_sum = np.zeros(self.N_word, dtype=np.float32).tolist()
+                        emb_avg = list(map(lambda x: x/float(ws_len), emb_sum))
+                        q_val.append(emb_avg)
+            if not is_list or is_q:
+                q_val_list = list(q_val)
+                for t in range(len(q_val_list)):
+                    temp = q_val_list[t].tolist()
+                    if type(temp).__name__ == 'map':
+                        temp = list(temp)
+                    if len(temp) != 0:
+                        content = np.array(temp)
+                    else:
+                        content = np.zeros(self.N_word)
+                    q_val_list[t] = content
+
+                val_embs.append([np.zeros(self.N_word, dtype=np.float32)] + q_val_list + [
+                    np.zeros(self.N_word, dtype=np.float32)])  # <BEG> and <END>
+                val_len[i] = 1 + len(q_val_list) + 1
+            else:
+                val_embs.append(q_val)
+                val_len[i] = len(q_val)
 
         max_len = max(val_len)
 

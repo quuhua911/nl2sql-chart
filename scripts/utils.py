@@ -302,7 +302,6 @@ def print_results(model, batch_size, sql_data, table_data, output_file, schemas,
             output.write(sql+"\n")
         st = ed
 
-
 def print_one_chart(model, query_seq, sel_col_seq, sel_col_agg, sel_col_num, output_file):
     model.eval()
     output = open(output_file, 'w')

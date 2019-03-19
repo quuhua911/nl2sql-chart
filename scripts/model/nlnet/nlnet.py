@@ -66,7 +66,7 @@ class NLNet(nn.Module):
         pred_agg, pred_sel, pred_cond = pred_entry
 
         # 将输入/col字段名转换为词嵌入
-        x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col)
+        x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col, is_q=True)
         col_inp_var, col_name_len, col_len = self.embed_layer.gen_col_batch(col)
 
         max_x_len = max(x_len)
