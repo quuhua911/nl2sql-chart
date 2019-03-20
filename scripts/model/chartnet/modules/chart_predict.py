@@ -63,6 +63,13 @@ class ChartPredictor(nn.Module):
         # Predict the type
         att_val_qc = torch.bmm(col_enc, self.type_att(q_enc).transpose(1, 2))
 
+        for idx, num in enumerate(col_len):
+            if num < max_col_len:
+                att_val_qc[idx, num:, :] = -100
+        for idx, num in enumerate(q_len):
+            if num < max_q_len:
+                att_val_qc[idx, :, num:] = -100
+
         att_prob_qc = self.softmax(att_val_qc.view((-1, max_q_len))).view(B, -1, max_q_len)
 
         q_weighted = (q_enc.unsqueeze(1) * att_prob_qc.unsqueeze(3)).sum(2).sum(1)
@@ -79,6 +86,9 @@ class ChartPredictor(nn.Module):
         q_weighted_x = (q_enc.unsqueeze(1) * x_att.unsqueeze(3)).sum(2)
 
         x_score = self.x_out(self.x_out_q(q_weighted_x) + self.x_out_c(col_enc)).squeeze()
+        for idx, num in enumerate(col_len):
+            if num < max_col_len:
+                x_score[idx, num:] = -100
 
         # Predict the y col
         att_y_qc = torch.bmm(col_enc, self.y_att(q_enc).transpose(1, 2))
@@ -89,6 +99,10 @@ class ChartPredictor(nn.Module):
         q_weighted_y = (q_enc.unsqueeze(1) * y_att.unsqueeze(3)).sum(2)
 
         y_score = self.y_out(self.y_out_q(q_weighted_y) + self.y_out_c(col_enc)).squeeze()
+        for idx, num in enumerate(col_len):
+            if num < max_col_len:
+                y_score[idx, num:] = -100
+
         score = (type_score, x_score, y_score)
 
         return score

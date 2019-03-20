@@ -296,10 +296,33 @@ def print_results(model, batch_size, sql_data, table_data, output_file, schemas,
         ed = st+batch_size if st+batch_size < len(perm) else len(perm)
         q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq,\
          raw_data, col_org_seq, schema_seq = to_batch_seq(sql_data, table_data, perm, st, ed, schemas, ret_vis_data=True)
-        score = model.forward(q_seq, col_seq, col_num, pred_entry)
-        gen_sqls = model.gen_sql(score, col_org_seq, schema_seq)
-        for sql in gen_sqls:
-            output.write(sql+"\n")
+
+        # query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
+
+        sel_col_seq = []
+        sel_col_agg = []
+        sel_col_num = []
+        for idx in range(len(col_seq)):
+            curr_sel = ans_seq[idx][1]
+            curr_table = col_seq[idx]
+            curr_sel_col = [curr_table[x] for x in curr_sel]
+            curr_sel_agg = [ans_seq[idx][0][i] for i, x in enumerate(curr_sel)]
+            sel_col_seq.append(curr_sel_col)
+            sel_col_agg.append(curr_sel_agg)
+            sel_col_num.append(len(curr_sel_col))
+
+        if type(model).__name__ == "chartNet":
+            score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num)
+            charts = model.gen_chart_info(score, query_seq, sel_col_seq, sel_col_agg)
+            for chart_info in charts:
+                output.write(str(chart_info["type"]) + " "
+                             + str(chart_info["x_col"]) + " "
+                             + str(chart_info["y_col"]) + "\n")
+        else:
+            score = model.forward(q_seq, col_seq, col_num, pred_entry)
+            gen_sqls = model.gen_sql(score, col_org_seq, schema_seq)
+            for sql in gen_sqls:
+                output.write(sql+"\n")
         st = ed
 
 def print_one_chart(model, query_seq, sel_col_seq, sel_col_agg, sel_col_num, output_file):
@@ -415,7 +438,7 @@ def epoch_train(model, optimizer, batch_size, sql_data, table_data, schemas, pre
             to_batch_seq(sql_data, table_data, perm, st, ed, schemas)
         gt_sel_seq = [x[1] for x in ans_seq]
 
-        query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
+        query_gt, _ = to_batch_query(sql_data, perm, st, ed)
 
         sel_col_seq = []
         sel_col_agg = []
@@ -430,12 +453,23 @@ def epoch_train(model, optimizer, batch_size, sql_data, table_data, schemas, pre
             sel_col_num.append(len(curr_sel_col))
 
         if type(model).__name__ == 'chartNet':
-            score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num, pred_entry)
+            temp = query_gt[:]
+            rev_num = 0
+            for idx in range(len(query_gt)):
+                if int(temp[idx]['type_of_chart']) > 2:
+                    new_idx = idx - rev_num
+                    query_seq.pop(new_idx)
+                    query_gt.pop(new_idx)
+                    sel_col_seq.pop(new_idx)
+                    sel_col_agg.pop(new_idx)
+                    sel_col_num.pop(new_idx)
+                    rev_num += 1
+            score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num)
             loss = model.loss(score, query_gt)
         else:
             score = model.forward(q_seq, col_seq, col_num, pred_entry, gt_cond=gt_cond_seq, gt_sel=gt_sel_seq)
             loss = model.loss(score, ans_seq, pred_entry)
-        cum_loss = cum_loss + loss.data.cpu().numpy().tolist() * (ed - st)
+        cum_loss += loss.data.cpu().numpy().tolist() * (ed - st)
 
         optimizer.zero_grad()
         loss.backward()
@@ -475,6 +509,17 @@ def epoch_acc(model, batch_size, sql_data, table_data, schemas, pred_entry, erro
             sel_col_num.append(len(curr_sel_col))
 
         if type(model).__name__ == "chartNet":
+            temp = query_gt[:]
+            rev_num = 0
+            for idx in range(len(query_gt)):
+                if int(temp[idx]['type_of_chart']) > 2:
+                    new_idx = idx - rev_num
+                    query_seq.pop(new_idx)
+                    query_gt.pop(new_idx)
+                    sel_col_seq.pop(new_idx)
+                    sel_col_agg.pop(new_idx)
+                    sel_col_num.pop(new_idx)
+                    rev_num += 1
             score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num)
             pred_list = model.gen_chart_info(score, query_seq, sel_col_seq, sel_col_agg)
             one_err, tot_err = model.check_acc(pred_list, query_gt, error_print)

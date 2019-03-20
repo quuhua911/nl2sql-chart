@@ -49,8 +49,23 @@ class WordEmbedding(nn.Module):
                         emb_list.append(self.word_emb.get(w, np.zeros(self.N_word, dtype=np.float32)))
                     if ws_len == 0:
                         raise Exception("word list shouldn't be empty!")
+                    elif ws_len == 1:
+                        q_val.append(emb_list[0])
                     else:
                         # 取嵌入的均值
+                        emb_list_without_map = []
+                        for emb in emb_list:
+                            emb_from_ndarray = emb.tolist()
+                            temp_type = type(emb_from_ndarray).__name__
+                            if temp_type == 'map':
+                                the_list = list(emb_from_ndarray)
+                                if len(the_list) == 0:
+                                    emb = np.zeros(self.N_word, dtype=np.float32)
+                                else:
+                                    emb = np.array(the_list)
+                            emb_list_without_map.append(emb)
+                        q_val.append(sum(emb_list_without_map) / float(ws_len))
+                        '''
                         emb_list_without_map = []
                         for emb in emb_list:
                             emb_from_ndarray = emb.tolist()
@@ -68,6 +83,7 @@ class WordEmbedding(nn.Module):
                             emb_sum = np.zeros(self.N_word, dtype=np.float32).tolist()
                         emb_avg = list(map(lambda x: x/float(ws_len), emb_sum))
                         q_val.append(emb_avg)
+                        '''
             if not is_list or is_q:
                 q_val_list = list(q_val)
                 for t in range(len(q_val_list)):

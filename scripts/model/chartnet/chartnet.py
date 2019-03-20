@@ -20,7 +20,6 @@ class chartNet(nn.Module):
 
         self.embed_layer = WordEmbedding(word_emb, N_word, gpu)
         self.chart_pred = ChartPredictor(N_word, N_h, N_depth, gpu)
-        self.sel_pred = SelPredictor(N_word, N_h, N_depth, gpu)
 
         self.CE = nn.CrossEntropyLoss()
         self.softmax = nn.Softmax(dim=1)
@@ -117,8 +116,12 @@ class chartNet(nn.Module):
             x_col = np.argmax(x_col_score_c[b])
             cur_list["x_col"] = x_col
 
-            y_col = np.argmax(y_col_score_c[b])
-            cur_list["y_col"] = y_col
+            y_col = list(np.argsort(-y_col_score_c[b])[:2])
+            if y_col[0] == x_col:
+                cur_list["y_col"] = y_col[1]
+            else:
+                cur_list["y_col"] = y_col[0]
+
             ret_lists.append(cur_list)
         return ret_lists
 

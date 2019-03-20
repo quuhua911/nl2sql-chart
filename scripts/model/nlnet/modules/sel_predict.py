@@ -171,6 +171,7 @@ class SelPredictor(nn.Module):
         col_emb = []
         for b in range(B):
             temp = [col_enc[b, x] for x in chosen_sel_gt[b]]
+            # Join a sequence of arrays along a new axis.
             cur_col_emb = torch.stack(temp + [col_enc[b, 0]] * (5 - len(chosen_sel_gt[b])))
             col_emb.append(cur_col_emb)
         col_emb = torch.stack(col_emb)  # (B, 4, hide)

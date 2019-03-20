@@ -74,8 +74,8 @@ class NLNet(nn.Module):
         # gt_sel = None
         # gt_cond = None
 
-        sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len, gt_sel)
-        cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, gt_cond)
+        sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len, gt_sel=gt_sel)
+        cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, gt_cond=gt_cond)
         group_score = self.group_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len)
         order_score = self.order_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len)
 

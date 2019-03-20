@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     TEST_ENTRY = (True, True, True)  # (AGG, SEL, COND)
 
-    dataset_dir = "data/"
+    dataset_dir = "data/processed/"
     saved_models_dir = "saved_models/"
 
     # 加载json文件
