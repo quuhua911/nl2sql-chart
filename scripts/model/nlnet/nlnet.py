@@ -34,7 +34,7 @@ class NLNet(nn.Module):
         self.SQL_TOK = ['<UNK>', '<END>', 'WHERE', 'AND', 'EQL', 'GT', 'LT', '<BEG>']
         self.COND_OPS = ['EQL', 'GT', 'LT']
 
-        self.embed_layer = WordEmbedding(word_emb, N_word, gpu, self.SQL_TOK)
+        self.embed_layer = WordEmbedding(word_emb, N_word, gpu)
 
         self.sel_pred = SelPredictor(N_word, N_h, N_depth, gpu)
         self.cond_pred = CondPredictor(N_word, N_h, N_depth, gpu)
