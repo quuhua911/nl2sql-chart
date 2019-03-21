@@ -9,12 +9,11 @@ import numpy as np
 
 
 class WordEmbedding(nn.Module):
-    def __init__(self, word_emb, N_word, gpu, SQL_TOK):
+    def __init__(self, word_emb, N_word, gpu):
         super(WordEmbedding, self).__init__()
 
         self.N_word = N_word
         self.gpu = gpu
-        self.SQL_TOK = SQL_TOK
 
         self.word_emb = word_emb
 
