@@ -45,5 +45,6 @@ if __name__ == '__main__':
     print("Loading from order model...")
     model.order_pred.load_state_dict(torch.load(saved_models_dir + "order_models.dump", map_location='cpu'))
 
-    output = "output.txt"
-    print_results(model, BATCH_SIZE, test_sql_data, test_table_data, output, schemas, TEST_ENTRY)
+    golden_file = "test_golden.txt"
+    predict_file = "output.txt"
+    print_results(model, BATCH_SIZE, test_sql_data, test_table_data, golden_file, predict_file, schemas, TEST_ENTRY)

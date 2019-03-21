@@ -303,13 +303,14 @@ def format_dataset(dataset_origin_data, table_origin_data):
 
     return sqls, table_cols
 
-def print_results(model, batch_size, sql_data, table_data, output_file, schemas, pred_entry, error_print=False, train_flag = False):
+def print_results(model, batch_size, sql_data, table_data, golden_file, output_file, schemas, pred_entry, error_print=False, train_flag = False):
     model.eval()
     perm = list(range(len(sql_data)))
     st = 0
     one_acc_num = 0.0
     tot_acc_num = 0.0
     output = open(output_file, 'w')
+    golden = open(golden_file, "w")
     while st < len(sql_data):
         ed = st+batch_size if st+batch_size < len(perm) else len(perm)
         q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq,\
@@ -339,7 +340,10 @@ def print_results(model, batch_size, sql_data, table_data, output_file, schemas,
         else:
             score = model.forward(q_seq, col_seq, col_num, pred_entry)
             gen_sqls = model.gen_sql(score, col_org_seq, schema_seq)
-            for sql in gen_sqls:
+            golden_sqls = [x[2] for x in raw_data]
+            db_ids = [x["db_id"] for x in schema_seq]
+            for i, sql in enumerate(gen_sqls):
+                golden.write(golden_sqls[i]+"\t"+db_ids[i]+"\n")
                 output.write(sql+"\n")
         st = ed
 
