@@ -68,21 +68,28 @@ def load_data_for_seq(seq, db_id, FAST=True):
     return temp, table_cols, tables
 
 
-def load_word_emb(file, FAST=True):
-    ret = {}
+def load_word_emb(file, load_used=False, FAST=True):
+    if not load_used:
+        ret = {}
 
-    with open(file) as file_inf:
-        # 获得每一个字符的embedding情况
-        for idx, line in enumerate(file_inf):
-            if FAST and idx >= 2000:
-                break
-            info = line.strip().split(' ')
-            # 首位代表字符
-            if info[0].lower() not in ret:
-                ret[info[0]] = np.array(map(lambda x: float(x), info[1:]))
-
-        return ret
-
+        with open(file) as file_inf:
+            # 获得每一个字符的embedding情况
+            for idx, line in enumerate(file_inf):
+                if FAST and idx >= 2000:
+                    break
+                info = line.strip().split(' ')
+                # 首位代表字符
+                if info[0].lower() not in ret:
+                    line_d = map(lambda x: float(x), info[1:])
+                    temp = list(line_d)
+                    ret[info[0]] = np.array(temp)
+            return ret
+    else:
+        with open('../glove/word2idx.json') as inf:
+            w2i = json.load(inf)
+        with open('../glove/usedwordemb.npy') as inf:
+            word_emb_val = np.load(inf)
+        return w2i, word_emb_val
 
 # 加载数据集
 def load_dataset(dataset, FAST=True):
@@ -114,7 +121,6 @@ def load_dataset(dataset, FAST=True):
 
 # 读取数据集并进行格式化
 def load_dataset_with_format(dir, table_origin_data, FAST):
-
     with open(dir) as dataset_inf:
         print("Loading data from %s" % dir)
         dataset_origin_data = json.load(dataset_inf)
@@ -195,7 +201,10 @@ def format_dataset(dataset_origin_data, table_origin_data):
         '''
 
         table_sel = sql['select']
-        for tup in table_sel[1]:
+        gt_sel = table_sel[1]
+        if len(gt_sel) > 3:
+            gt_sel = gt_sel[:3]
+        for tup in gt_sel:
             temp['agg'].append(tup[0])
             temp['sel'].append(tup[1][1][1])
 
@@ -280,6 +289,15 @@ def format_dataset(dataset_origin_data, table_origin_data):
                     order_par = 3
 
         temp['order'] = [order_aggs, order_cols, order_par]  # GOLD for ORDER [[[agg], [col], [dat]], []]
+
+        # process intersect/except/union
+        temp['special'] = 0
+        if sql['intersect'] is not None:
+            temp['special'] = 1
+        elif sql['except'] is not None:
+            temp['special'] = 2
+        elif sql['union'] is not None:
+            temp['special'] = 3
 
         sqls.append(temp)
 

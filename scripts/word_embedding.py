@@ -2,13 +2,14 @@
 
 import torch
 import torch.nn as nn
+import copy
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 
 
 class WordEmbedding(nn.Module):
-    def __init__(self, word_emb, N_word, gpu, SQL_TOK = None):
+    def __init__(self, word_emb, N_word, gpu, SQL_TOK):
         super(WordEmbedding, self).__init__()
 
         self.N_word = N_word
@@ -52,6 +53,8 @@ class WordEmbedding(nn.Module):
                     elif ws_len == 1:
                         q_val.append(emb_list[0])
                     else:
+                        q_val.append(sum(emb_list) / float(ws_len))
+                        '''
                         # 取嵌入的均值
                         emb_list_without_map = []
                         for emb in emb_list:
@@ -65,6 +68,7 @@ class WordEmbedding(nn.Module):
                                     emb = np.array(the_list)
                             emb_list_without_map.append(emb)
                         q_val.append(sum(emb_list_without_map) / float(ws_len))
+                        '''
                         '''
                         emb_list_without_map = []
                         for emb in emb_list:
@@ -141,14 +145,14 @@ class WordEmbedding(nn.Module):
         # col_len: 由各个输入对应的表的字段数组成的列表
         return name_inp_var, name_len, col_len
 
-    # 具体的处理方式
+    # detailed info
     def str_list_to_batch(self, col_names):
         B = len(col_names)
 
         val_embs = []
         val_len = np.zeros(B, dtype=np.int64)
 
-        # 为进行词嵌入计算预处理
+        # preprocess for embedding
         for i, one_str in enumerate(col_names):
             val = [self.word_emb.get(x, np.zeros(self.N_word, dtype=np.float32)) for x in one_str]
 
@@ -158,18 +162,11 @@ class WordEmbedding(nn.Module):
         max_len = max(val_len)
 
         val_emb_array = np.zeros((B, max_len, self.N_word), dtype=np.float32)
+
         # 每个col_name
         for i in range(B):
-            #
             for t in range(len(val_embs[i])):
-                temp = val_embs[i][t].tolist()
-                if type(temp).__name__ == 'map':
-                    temp = list(temp)
-                if len(temp) != 0:
-                    content = np.array(temp)
-                else:
-                    content = np.zeros(self.N_word)
-                val_emb_array[i, t, :] = content
+                val_emb_array[i, t, :] = val_embs[i][t]
         val_inp = torch.from_numpy(val_emb_array)
         if self.gpu:
             val_inp = val_inp.cuda()
