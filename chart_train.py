@@ -31,7 +31,7 @@ if __name__ == '__main__':
 
     learning_rate = 1e-3
 
-    file_dir = "data/processed/"
+    file_dir = "data/processed/temp/"
 
     sql_data, table_data, val_sql_data, val_table_data, \
     test_sql_data, test_table_data, schemas, \
@@ -73,6 +73,8 @@ if __name__ == '__main__':
             torch.save(model.chart_pred.state_dict(), "test_saved_models/chart_models.dump")
         if val_tot_acc > best_tot_acc:
             best_tot_acc = val_tot_acc
+        if i == 299:
+            torch.save(model.chart_pred.state_dict(), "test_saved_models/300_chart_models.dump")
 
         logging.info(' Best tot = %s' % best_tot_acc)
 

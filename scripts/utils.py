@@ -542,6 +542,8 @@ def epoch_acc(model, batch_size, sql_data, table_data, schemas, pred_entry, erro
                     sel_col_agg.pop(new_idx)
                     sel_col_num.pop(new_idx)
                     rev_num += 1
+            if len(query_seq) == 0:
+                continue
             score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num)
             pred_list = model.gen_chart_info(score, query_seq, sel_col_seq, sel_col_agg)
             one_err, tot_err = model.check_acc(pred_list, query_gt, error_print)

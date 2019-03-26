@@ -1,7 +1,7 @@
 # coding = utf-8
 import json
 
-source_file = "./data/train.json"
+source_file = "../data/processed/temp/train.json"
 target_file = "./data/train.json"
 
 # 打开json文件, 进行遍历
@@ -57,14 +57,57 @@ def process_json(file_data):
     print("Finished!")
     return processed_list
 
+
+def split_json(file_data):
+    unprocessed_list = []
+    processed_list = []
+    for idx, qry in enumerate(file_data):
+        if int(qry['type_of_chart']) > 2:
+            unprocessed_list.append(qry)
+        else:
+            processed_list.append(qry)
+    return unprocessed_list, processed_list
+
+
 def write_datafile(file_dir,data):
     jsonString = json.dumps(data, indent=4)
     with open(file_dir, 'w') as f:
         f.write(jsonString)
 
 
+def count_type(file_data):
+    type0 = 0
+    type1 = 0
+    type2 = 0
+
+    for idx, qry in enumerate(file_data):
+        if int(qry['type_of_chart']) == 0:
+            type0 += 1
+        elif int(qry['type_of_chart']) == 1:
+            type1 += 1
+        else:
+            type2 += 1
+    return (type0, type1, type2)
+
+
+def slipt_data():
+    file_data = load_datafile(source_file)
+
+    # processed_list = process_json(file_data)
+    unprocessed_list, processed_list = split_json(file_data)
+
+    unprocessed_file = "../data/unprocessed_dev.json"
+    # unprocessed
+    write_datafile(unprocessed_file, unprocessed_list)
+
+    processed_file = "../data/processed_dev.json"
+    # processed
+    write_datafile(processed_file, processed_list)
+
+    print("Finished!")
+
 file_data = load_datafile(source_file)
 
-processed_list = process_json(file_data)
+a, b, c = count_type(file_data)
 
-write_datafile(target_file, processed_list)
+print(a, b, c)

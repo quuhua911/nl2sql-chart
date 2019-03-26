@@ -49,6 +49,7 @@ class chartNet(nn.Module):
         # Type部分
         type_truth = map(lambda x: int(x['type_of_chart']), truth)
         temp = list(type_truth)
+        # 数据集
         temp_truth = [x if x < 3 else 0 for x in temp]
         data = torch.from_numpy(np.array(temp_truth))
 
@@ -64,36 +65,41 @@ class chartNet(nn.Module):
         # x_col及y_col部分
         x_truth = []
         y_truth = []
-        x_pred = []
-        y_pred = []
+        # x_pred = []
+        # y_pred = []
 
         # 消除type为0时的x/y情况
 
         for idx, type in enumerate(temp_truth):
-            if type == 0:
-                continue
-            x_pred.append(x_col_score[idx, :].tolist())
-            y_pred.append(y_col_score[idx, :].tolist())
+            #if type == 0:
+            #    continue
+            # x_pred.append(x_col_score[idx, :].tolist())
+            # y_pred.append(y_col_score[idx, :].tolist())
             x_truth.append(int(truth[idx]['x_col']))
             y_truth.append(int(truth[idx]['y_col']))
 
-        x_pred = torch.tensor(x_pred, dtype=torch.float32)
-        y_pred = torch.tensor(y_pred, dtype=torch.float32)
+        # x_pred = torch.tensor(x_pred, dtype=torch.float32)
+        # y_pred = torch.tensor(y_pred, dtype=torch.float32)
+
 
         data = torch.from_numpy(np.array(x_truth))
         if self.gpu:
+            #x_pred_var = Variable(x_pred.cuda())
             x_truth_var = Variable(data.cuda())
         else:
+            #x_pred_var = Variable(x_pred)
             x_truth_var = Variable(data)
 
-        loss = loss + self.CE(x_pred, x_truth_var)
+        loss = loss + self.CE(x_col_score, x_truth_var)
 
         data = torch.from_numpy(np.array(y_truth))
         if self.gpu:
+            # y_pred_var = Variable(y_pred.cuda())
             y_truth_var = Variable(data.cuda())
         else:
+            # y_pred_var = Variable(y_pred)
             y_truth_var = Variable(data)
-        loss = loss + self.CE(y_pred, y_truth_var)
+        loss = loss + self.CE(y_col_score, y_truth_var)
 
         return loss
 
