@@ -43,6 +43,8 @@ class WordEmbedding(nn.Module):
                 # 句粒度
                 for ws in one_q:
                     emb_list = []
+                    if type(ws).__name__ == 'int':
+                        print(one_q)
                     ws_len = len(ws)
                     # 词粒度
                     for w in ws:
@@ -89,6 +91,7 @@ class WordEmbedding(nn.Module):
                         '''
             if not is_list or is_q:
                 q_val_list = list(q_val)
+                '''
                 for t in range(len(q_val_list)):
                     temp = q_val_list[t].tolist()
                     if type(temp).__name__ == 'map':
@@ -98,13 +101,14 @@ class WordEmbedding(nn.Module):
                     else:
                         content = np.zeros(self.N_word)
                     q_val_list[t] = content
-
+                '''
                 val_embs.append([np.zeros(self.N_word, dtype=np.float32)] + q_val_list + [
                     np.zeros(self.N_word, dtype=np.float32)])  # <BEG> and <END>
                 val_len[i] = 1 + len(q_val_list) + 1
             else:
-                val_embs.append(q_val)
-                val_len[i] = len(q_val)
+                q_val_list = list(q_val)
+                val_embs.append(q_val_list)
+                val_len[i] = len(q_val_list)
 
         max_len = max(val_len)
 

@@ -32,10 +32,17 @@ class chartNet(nn.Module):
         B = len(q)
 
         # todo:encode the agg
-        x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col)
-        col_inp_var, col_name_len, col_len = self.embed_layer.gen_col_batch(col)
+        # x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col)
+        x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col, is_list=True, is_q=True)
+        temp_agg = []
+        for i in col_agg:
+            the_agg = [AGG_OPS[x] for x in i]
+            temp_agg.append(the_agg)
+        agg_type_emb_var, agg_type_len = self.embed_layer.gen_x_batch(temp_agg, col, is_list=True)
+        # col_inp_var, col_name_len, col_len = self.embed_layer.gen_col_batch(col)
+        col_inp_var, col_len = self.embed_layer.gen_x_batch(col, col, is_list=True)
 
-        chart_score = self.chart_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len)
+        chart_score = self.chart_pred(x_emb_var, x_len, col_inp_var, col_len, agg_type_emb_var)
 
         return chart_score
 

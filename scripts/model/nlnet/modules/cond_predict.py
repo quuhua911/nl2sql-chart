@@ -2,6 +2,7 @@
 import torch
 import numpy as np
 import torch.nn as nn
+from torch.autograd import Variable
 from scripts.net_utils import run_lstm, col_name_encode
 
 
@@ -11,7 +12,10 @@ class CondPredictor(nn.Module):
         self.N_h = N_h
         self.gpu = gpu
 
-        self.q_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
+        self.max_col_num = 45
+        self.max_tok_num = 200
+
+        self.q_lstm = nn.LSTM(input_size=N_word + N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
 
@@ -33,6 +37,20 @@ class CondPredictor(nn.Module):
         self.op_out_c = nn.Linear(N_h, N_h)
         self.op_out = nn.Sequential(nn.Tanh(), nn.Linear(N_h, 12)) #to 5
 
+        self.cond_str_lstm = nn.LSTM(input_size=N_word + N_word, hidden_size=N_h // 2,
+                                     num_layers=N_depth, batch_first=True,
+                                     dropout=0.3, bidirectional=True)
+        self.cond_str_decoder = nn.LSTM(input_size=self.max_tok_num,
+                                        hidden_size=N_h, num_layers=N_depth,
+                                        batch_first=True, dropout=0.3)
+        self.cond_str_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h // 2,
+                                         num_layers=N_depth, batch_first=True,
+                                         dropout=0.3, bidirectional=True)
+        self.cond_str_out_g = nn.Linear(N_h, N_h)
+        self.cond_str_out_h = nn.Linear(N_h, N_h)
+        self.cond_str_out_col = nn.Linear(N_h, N_h)
+        self.cond_str_out = nn.Sequential(nn.ReLU(), nn.Linear(N_h, 1))
+
         self.softmax = nn.Softmax(dim=1)
         self.CE = nn.CrossEntropyLoss()
         self.log_softmax = nn.LogSoftmax()
@@ -42,12 +60,13 @@ class CondPredictor(nn.Module):
         if gpu:
             self.cuda()
 
-    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_num, col_name_len, gt_cond):
+    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_num, col_name_len, x_type_emb_var, gt_cond, gt_where):
         max_q_len = max(q_len)
         max_col_len = max(col_len)
         B = len(q_len)
 
-        q_enc, _ = run_lstm(self.q_lstm, q_emb_var, q_len)
+        q_emb_concat = torch.cat((q_emb_var, x_type_emb_var), 2)
+        q_enc, _ = run_lstm(self.q_lstm, q_emb_concat, q_len)
         col_enc, _ = col_name_encode(self.col_lstm, col_emb_var, col_name_len, col_len)
 
         # Predict column number: 0-4
@@ -107,6 +126,98 @@ class CondPredictor(nn.Module):
         op_score = self.op_out(self.op_out_q(q_weighted_op) +
                             self.op_out_c(col_emb)).squeeze()
 
-        score = (col_num_score, col_score, op_score)
+        # Predict the string of conditions
+        h_str_enc, _ = run_lstm(self.cond_str_lstm, q_emb_concat, q_len)
+        e_cond_col, _ = col_name_encode(self.cond_str_name_enc, col_emb_var, col_name_len, col_len)
+
+        if gt_where is not None:
+            gt_tok_seq, gt_tok_len = self.gen_gt_batch(gt_where)
+            g_str_s_flat, _ = self.cond_str_decoder(
+                gt_tok_seq.view(B * 5, -1, self.max_tok_num))
+            g_str_s = g_str_s_flat.contiguous().view(B, 5, -1, self.N_h)
+
+            h_ext = h_str_enc.unsqueeze(1).unsqueeze(1)
+            g_ext = g_str_s.unsqueeze(3)
+            col_ext = col_emb.unsqueeze(2).unsqueeze(2)
+
+            cond_str_score = self.cond_str_out(
+                self.cond_str_out_h(h_ext) + self.cond_str_out_g(g_ext) +
+                self.cond_str_out_col(col_ext)).squeeze()
+            for b, num in enumerate(q_len):
+                if num < max_q_len:
+                    cond_str_score[b, :, :, num:] = -100
+        else:
+            h_ext = h_str_enc.unsqueeze(1).unsqueeze(1)
+            col_ext = col_emb.unsqueeze(2).unsqueeze(2)
+            scores = []
+
+            t = 0
+            init_inp = np.zeros((B * 5, 1, self.max_tok_num), dtype=np.float32)
+            init_inp[:, 0, 0] = 1  # Set the <BEG> token
+            if self.gpu:
+                cur_inp = Variable(torch.from_numpy(init_inp).cuda())
+            else:
+                cur_inp = Variable(torch.from_numpy(init_inp))
+            cur_h = None
+            while t < 50:
+                if cur_h:
+                    g_str_s_flat, cur_h = self.cond_str_decoder(cur_inp, cur_h)
+                else:
+                    g_str_s_flat, cur_h = self.cond_str_decoder(cur_inp)
+                g_str_s = g_str_s_flat.view(B, 5, 1, self.N_h)
+                g_ext = g_str_s.unsqueeze(3)
+
+                cur_cond_str_score = self.cond_str_out(
+                    self.cond_str_out_h(h_ext) + self.cond_str_out_g(g_ext)
+                    + self.cond_str_out_col(col_ext)).squeeze()
+                for b, num in enumerate(q_len):
+                    if num < max_q_len:
+                        cur_cond_str_score[b, :, num:] = -100
+                scores.append(cur_cond_str_score)
+
+                _, ans_tok_var = cur_cond_str_score.view(B * 5, max_q_len).max(1)
+                ans_tok = ans_tok_var.data.cpu()
+                data = torch.zeros(B * 5, self.max_tok_num).scatter_(
+                    1, ans_tok.unsqueeze(1), 1)
+                if self.gpu:  # To one-hot
+                    cur_inp = Variable(data.cuda())
+                else:
+                    cur_inp = Variable(data)
+                cur_inp = cur_inp.unsqueeze(1)
+
+                t += 1
+
+            cond_str_score = torch.stack(scores, 2)
+            for b, num in enumerate(q_len):
+                if num < max_q_len:
+                    cond_str_score[b, :, :, num:] = -100  # [B, IDX, T, TOK_NUM]
+        score = (col_num_score, col_score, op_score, cond_str_score)
 
         return score
+
+    def gen_gt_batch(self, split_tok_seq):
+        B = len(split_tok_seq)
+        max_len = max([max([len(tok) for tok in tok_seq] + [0]) for
+                       tok_seq in split_tok_seq]) - 1  # The max seq len in the batch.
+        if max_len < 1:
+            max_len = 1
+        ret_array = np.zeros((
+            B, 5, max_len, self.max_tok_num), dtype=np.float32)
+        ret_len = np.zeros((B, 5))
+        for b, tok_seq in enumerate(split_tok_seq):
+            idx = 0
+            for idx, one_tok_seq in enumerate(tok_seq):
+                out_one_tok_seq = one_tok_seq[:-1]
+                ret_len[b, idx] = len(out_one_tok_seq)
+                for t, tok_id in enumerate(out_one_tok_seq):
+                    ret_array[b, idx, t, tok_id] = 1
+            if idx < 4:
+                ret_array[b, idx + 1:, 0, 1] = 1
+                ret_len[b, idx + 1:] = 1
+
+        ret_inp = torch.from_numpy(ret_array)
+        if self.gpu:
+            ret_inp = ret_inp.cuda()
+        ret_inp_var = Variable(ret_inp)
+
+        return ret_inp_var, ret_len  # [B, IDX, max_len, max_tok_num]

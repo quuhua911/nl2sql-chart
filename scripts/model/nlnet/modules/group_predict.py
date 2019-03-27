@@ -10,7 +10,7 @@ class GroupPredictor(nn.Module):
         self.N_h = N_h
         self.gpu = gpu
 
-        self.q_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
+        self.q_lstm = nn.LSTM(input_size=N_word + N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
 
@@ -56,12 +56,13 @@ class GroupPredictor(nn.Module):
         if gpu:
             self.cuda()
 
-    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_num, col_name_len):
+    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_num, col_name_len, x_type_emb_var):
         max_q_len = max(q_len)
         max_col_len = max(col_len)
         B = len(q_len)
 
-        q_enc, _ = run_lstm(self.q_lstm, q_emb_var, q_len)
+        q_emb_concat = torch.cat((q_emb_var, x_type_emb_var), 2)
+        q_enc, _ = run_lstm(self.q_lstm, q_emb_concat, q_len)
         col_enc, _ = col_name_encode(self.col_lstm, col_emb_var, col_name_len, col_len)
 
         # Predict group column number

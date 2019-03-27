@@ -1,7 +1,7 @@
 # coding = utf-8
 import json
 
-source_file = "../data/processed/temp/train.json"
+source_file = "../data/unprocessed_train.json"
 target_file = "./data/train.json"
 
 # 打开json文件, 进行遍历
@@ -23,7 +23,6 @@ def load_datafile(file_dir):
     return file_data
 
 
-
 def process_json(file_data):
     processed_num = 0
     processed_list = []
@@ -32,6 +31,10 @@ def process_json(file_data):
         # 显示对应的sql语句
         print("The question is:" + qry["question"] + "\n")
         print("The query is:" + qry["query"] + "\n")
+
+        if qry["type_of_chart"] != None and qry["type_of_chart"] == "3":
+            continue
+
         if qry_before != None and qry['query'] == qry_before['query']:
             print("Same query!\n")
             qry['type_of_chart'] = qry_before['type_of_chart']
@@ -39,6 +42,8 @@ def process_json(file_data):
             qry["y_col"] = qry_before['y_col']
         else:
             type_of_chart = input("type:")
+            if type_of_chart == '9':
+                break
             if type_of_chart != '1' and type_of_chart != '2':
                 x_col = 0
                 y_col = 0
@@ -106,8 +111,25 @@ def slipt_data():
 
     print("Finished!")
 
+'''
+# Process the list
 file_data = load_datafile(source_file)
 
-a, b, c = count_type(file_data)
+processed_list = process_json(file_data)
 
-print(a, b, c)
+processed_file = "../data/processed_train.json"
+# processed
+write_datafile(processed_file, processed_list)
+'''
+
+'''
+# Combine the list
+file1 = load_datafile("../data/processed_train.json")
+file2 = load_datafile("../data/processed/temp/train.json")
+
+file = file1 + file2
+
+processed_file = "../data/processed_train_temp.json"
+# processed
+write_datafile(processed_file, file)
+'''

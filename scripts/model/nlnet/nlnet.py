@@ -58,7 +58,7 @@ class NLNet(nn.Module):
 
     '''
 
-    def forward(self, q, col, col_num, pred_entry, gt_cond=None, gt_sel=None):
+    def forward(self, q, col, col_num, q_type, q_concol_seq, pred_entry, gt_where=None, gt_cond=None, gt_sel=None):
         # 问句数目
         B = len(q)
 
@@ -66,7 +66,10 @@ class NLNet(nn.Module):
         pred_agg, pred_sel, pred_cond = pred_entry
 
         # 将输入/col字段名转换为词嵌入
-        x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col, is_q=True)
+        # q部分为分词后组成的list, 因此is_list设置为True
+        x_emb_var, x_len = self.embed_layer.gen_x_batch(q_concol_seq, col, is_list=True, is_q=True)
+        temp_emb_var, temp_len = self.embed_layer.gen_x_batch(q, col)
+        x_type_emb_var, x_type_len = self.embed_layer.gen_x_batch(q_type, col, is_list=True, is_q=True)
         col_inp_var, col_name_len, col_len = self.embed_layer.gen_col_batch(col)
 
         max_x_len = max(x_len)
@@ -74,21 +77,21 @@ class NLNet(nn.Module):
         # gt_sel = None
         # gt_cond = None
 
-        sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len, gt_sel=gt_sel)
-        cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, gt_cond=gt_cond)
-        group_score = self.group_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len)
-        order_score = self.order_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len)
+        sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len, x_type_emb_var, gt_sel=gt_sel)
+        cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, x_type_emb_var, gt_cond=gt_cond, gt_where=gt_where)
+        group_score = self.group_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, x_type_emb_var)
+        order_score = self.order_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, x_type_emb_var)
 
         return (sel_score, cond_score, group_score, order_score)
 
-    def loss(self, score, truth_num, pred_entry):
+    def loss(self, score, truth_num, pred_entry, gt_where):
         pred_agg, pred_sel, pred_cond = pred_entry
 
         sel_score, cond_score, group_score, order_score = score
 
         # 赋值各个部位
         sel_num_score, sel_col_score, agg_num_score, agg_op_score = sel_score
-        cond_num_score, cond_col_score, cond_op_score = cond_score
+        cond_num_score, cond_col_score, cond_op_score, cond_str_score = cond_score
         gby_num_score, gby_score, hv_score, hv_col_score, hv_agg_score, hv_op_score = group_score
         ody_num_score, ody_col_score, ody_agg_score, ody_par_score = order_score
 
@@ -230,6 +233,32 @@ class NLNet(nn.Module):
             # print 'cond_op_pred', list(cond_op_pred.size())
             loss += (self.CE(cond_op_pred, cond_op_truth_var) \
                     / len(truth_num))
+
+        # Evaluate the strings of the cond
+        for b in range(len(gt_where)):
+            for idx in range(len(gt_where[b])):
+                cond_str_truth = gt_where[b][idx]
+                if len(cond_str_truth) == 1:
+                    continue
+
+                arr = cond_str_score.shape[3]
+
+                for i in cond_str_truth:
+                    if i >= arr:
+                        continue
+                cond_str_truth_t = [i - 1 if i > 0 else 0 for i in cond_str_truth]
+                data = torch.from_numpy(np.array(cond_str_truth_t[1:]))
+                if self.gpu:
+                    cond_str_truth_var = Variable(data.cuda())
+                else:
+                    cond_str_truth_var = Variable(data)
+                str_end = len(cond_str_truth)-1
+                # cond_str_pred [str_end, max_q_len]
+                cond_str_pred = cond_str_score[b, idx, :str_end]
+                print(cond_str_pred)
+                print(cond_str_truth_var)
+                loss += (self.CE(cond_str_pred, cond_str_truth_var) \
+                         / (len(gt_where) * len(gt_where[b])))
         # -----------loss for group_pred -------------- #
         #gby_num_score, gby_score, hv_score, hv_col_score, hv_agg_score, hv_op_score = group_score
         # Evaluate the number of group by columns
@@ -379,11 +408,47 @@ class NLNet(nn.Module):
                     visited.add(node[0])
 
     def gen_query(self, score, q, col, raw_q, raw_col, pred_entry, verbose=False):
+        def merge_tokens(tok_list, raw_tok_str):
+            tok_str = raw_tok_str.lower()
+            alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789$('
+            special = {'-LRB-': '(',
+                       '-RRB-': ')',
+                       '-LSB-': '[',
+                       '-RSB-': ']',
+                       '``': '"',
+                       '\'\'': '"',
+                       '--': u'\u2013'}
+            ret = ''
+            double_quote_appear = 0
+            for raw_tok in tok_list:
+                if not raw_tok:
+                    continue
+                tok = special.get(raw_tok, raw_tok)
+                if tok == '"':
+                    double_quote_appear = 1 - double_quote_appear
+
+                if len(ret) == 0:
+                    pass
+                elif len(ret) > 0 and ret + ' ' + tok in tok_str:
+                    ret = ret + ' '
+                elif len(ret) > 0 and ret + tok in tok_str:
+                    pass
+                elif tok == '"':
+                    if double_quote_appear:
+                        ret = ret + ' '
+                elif tok[0] not in alphabet:
+                    pass
+                elif (ret[-1] not in ['(', '/', u'\u2013', '#', '$', '&']) \
+                        and (ret[-1] != '"' or not double_quote_appear):
+                    ret = ret + ' '
+                ret = ret + tok
+            return ret.strip()
+
         sel_score, cond_score, group_score, order_score = score
 
         sel_num_score, sel_col_score, agg_num_score, agg_op_score = [x.data.cpu().numpy() if x is not None else None for
                                                                      x in sel_score]
-        cond_num_score, cond_col_score, cond_op_score = [x.data.cpu().numpy() if x is not None else None for x in
+        cond_num_score, cond_col_score, cond_op_score, cond_str_score = [x.data.cpu().numpy() if x is not None else None for x in
                                                          cond_score]
         gby_num_score, gby_score, hv_score, hv_col_score, hv_agg_score, hv_op_score = [
             x.data.cpu().numpy() if x is not None else None for x in group_score]
@@ -444,10 +509,20 @@ class NLNet(nn.Module):
             cur_query['conds'] = []
             cond_num = np.argmax(cond_num_score[b])
             cond_cols = np.argsort(-cond_col_score[b])[:cond_num]
+            all_toks = ['<BEG>'] + q[b] + ['<END>']
             for idx in range(cond_num):
                 cur_cond = []
                 cur_cond.append(cond_cols[idx])
                 cur_cond.append(np.argmax(cond_op_score[b][idx]))
+                cur_cond_str_toks = []
+                for str_score in cond_str_score[b][idx]:
+                    str_tok = np.argmax(str_score[:len(all_toks)])
+                    str_val = all_toks[str_tok]
+                    if str_val == '<END>':
+                        break
+                    cur_cond_str_toks.append(str_val)
+                cur_cond.append(merge_tokens(cur_cond_str_toks, raw_q[b]))
+
                 cur_query['conds'].append(cur_cond)
             ret_queries.append(cur_query)
 
@@ -516,7 +591,43 @@ class NLNet(nn.Module):
             return table_alias_dict, ret
         return table_alias_dict, ret
 
-    def gen_sql(self, score, col_org, schema_seq):
+    def gen_sql(self, score, col_org, schema_seq, raw_q, q):
+
+        def merge_tokens(tok_list, raw_tok_str):
+            tok_str = raw_tok_str.lower()
+            alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789$('
+            special = {'-LRB-': '(',
+                       '-RRB-': ')',
+                       '-LSB-': '[',
+                       '-RSB-': ']',
+                       '``': '"',
+                       '\'\'': '"',
+                       '--': u'\u2013'}
+            ret = ''
+            double_quote_appear = 0
+            for raw_tok in tok_list:
+                if not raw_tok:
+                    continue
+                tok = special.get(raw_tok, raw_tok)
+                if tok == '"':
+                    double_quote_appear = 1 - double_quote_appear
+
+                if len(ret) == 0:
+                    pass
+                elif len(ret) > 0 and ret + ' ' + tok in tok_str:
+                    ret = ret + ' '
+                elif len(ret) > 0 and ret + tok in tok_str:
+                    pass
+                elif tok == '"':
+                    if double_quote_appear:
+                        ret = ret + ' '
+                elif tok[0] not in alphabet:
+                    pass
+                elif (ret[-1] not in ['(', '/', u'\u2013', '#', '$', '&']) \
+                        and (ret[-1] != '"' or not double_quote_appear):
+                    ret = ret + ' '
+                ret = ret + tok
+            return ret.strip()
 
         # 获得各个score情况
         sel_score, cond_score, group_score, order_score = score
@@ -528,7 +639,7 @@ class NLNet(nn.Module):
         # todo:中间部分与sel部分相对应?
         sel_num_score, sel_col_score, agg_num_score, agg_op_score = [x.data.cpu().numpy() if x is not None else None for
                                                                      x in sel_score]
-        cond_num_score, cond_col_score, cond_op_score = [x.data.cpu().numpy() if x is not None else None for x in
+        cond_num_score, cond_col_score, cond_op_score, cond_str_score = [x.data.cpu().numpy() if x is not None else None for x in
                                                          cond_score]
         gby_num_score, gby_score, hv_score, hv_col_score, hv_agg_score, hv_op_score = [
             x.data.cpu().numpy() if x is not None else None for x in group_score]
@@ -676,11 +787,22 @@ class NLNet(nn.Module):
             # cond_num_score, cond_col_score, cond_op_score = [x.data.cpu().numpy() if x is not None else None for x in cond_score]
             cur_query['conds'] = []
             cond_num = np.argmax(cond_num_score[b])
+            all_toks = ['<BEG>'] + q[b] + ['<END>']
             max_idxes = np.argsort(-cond_col_score[b])[:cond_num]
             for idx in range(cond_num):
+
                 cur_cond = []
                 cur_cond.append(max_idxes[idx])
                 cur_cond.append(np.argmax(cond_op_score[b][idx]))
+                cur_cond_str_toks = []
+                for str_score in cond_str_score[b][idx]:
+                    str_tok = np.argmax(str_score[:len(all_toks)])
+                    str_val = all_toks[str_tok]
+                    if str_val == '<END>':
+                        break
+                    cur_cond_str_toks.append(str_val)
+                cur_cond.append(merge_tokens(cur_cond_str_toks, raw_q[b]))
+
                 cur_query['conds'].append(cur_cond)
             ret_queries.append(cur_query)
 
@@ -786,13 +908,22 @@ class NLNet(nn.Module):
             except:
                 print("\n------skipping print: decoding problem ----------------------")
 
+        def gen_cond_str(conds, header):
+            if len(conds) == 0:
+                return 'None'
+            cond_str = []
+            for cond in conds:
+                cond_str.append(header[cond[0]] + ' ' +
+                                self.COND_OPS[cond[1]] + ' ' + str(cond[2]).lower())
+            return 'WHERE ' + ' AND '.join(cond_str)
+
         pred_agg, pred_sel, pred_cond = pred_entry
 
         B = len(gt_queries)
 
         tot_err = 0.0
         sel_err = agg_num_err = agg_op_err = sel_num_err = sel_col_err = 0.0
-        cond_err = cond_num_err = cond_col_err = cond_op_err = 0.0
+        cond_err = cond_num_err = cond_col_err = cond_op_err = cond_val_err = 0.0
         gby_err = gby_num_err = gby_col_err = hv_err = hv_col_err = hv_agg_err = hv_op_err = 0.0
         ody_err = ody_num_err = ody_col_err = ody_agg_err = ody_par_err = 0.0
 
@@ -861,7 +992,7 @@ class NLNet(nn.Module):
             gt_gby_col = gt_qry['group'][-1][1]
             gt_gby_op = gt_qry['group'][-1][2]
             if gby_num_pred != 0 and len(gt_gby_col) != 0:
-                if pred_qry['hv'] != 1:
+                if pred_qry['hv_num'] != 1:
                     hv_err += 1
                     gby_flag = False
                 if pred_qry['hv_agg'] != gt_gby_agg[0]:
@@ -926,6 +1057,17 @@ class NLNet(nn.Module):
                     cond_op_err += 1
                     cond_flag = False
 
+            for idx in range(len(cond_pred)):
+                if not flag:
+                    break
+                gt_idx = tuple(
+                    x[0] for x in cond_gt).index(cond_pred[idx][0])
+                if flag and str(cond_gt[gt_idx][2]).lower() != \
+                        str(cond_pred[idx][2]).lower():
+                    flag = False
+                    cond_val_err += 1
+                    cond_flag = False
+
             if not cond_flag:
                 cond_err += 1
                 good = False
@@ -937,4 +1079,52 @@ class NLNet(nn.Module):
                 tot_err += 1
 
         return np.array((sel_err, cond_err, gby_err, ody_err)), tot_err
+
+
+    def generate_gt_where_seq(self, q, col, query):
+        ret_seq = []
+        for cur_q, cur_col, cur_query in zip(q, col, query):
+            cur_values = []
+            st = cur_query.index(u'WHERE') + 1 if \
+                u'WHERE' in cur_query else len(cur_query)
+            all_toks = ['<BEG>'] + cur_q + ['<END>']
+            while st < len(cur_query):
+                if 'INTERSECT' in cur_query[st:] or 'EXCEPT' in cur_query[st:] or 'UNION' in cur_query[st:]:
+                    break
+
+                if 'AND' in cur_query[st:] or 'OR' in cur_query[st:]:
+                    if 'AND' in cur_query[st:]:
+                        ed = cur_query[st:].index('AND') + st
+                        if cur_query[st:].index('AND') > 8:
+                            ed = ed - 5
+                    else:
+                        ed = cur_query[st:].index('OR') + st
+                        if cur_query[st:].index('OR') > 8:
+                            ed = ed - 5
+                else:
+                    # ed = len(cur_query)
+                    ed = st + 5
+                if '=' in cur_query[st:ed]:
+                    op = cur_query[st:ed].index('=') + st
+                elif '>' in cur_query[st:ed]:
+                    op = cur_query[st:ed].index('>') + st
+                elif '<' in cur_query[st:ed]:
+                    op = cur_query[st:ed].index('<') + st
+                else:
+                    st = ed + 1
+                    continue
+                    # raise RuntimeError("No operator in it!")
+                temp = cur_query[op + 1:ed]
+                if "'" in temp and temp.index("'") != 0:
+                    idx = temp.index("'")
+                    idx0 = idx - 1
+                    temp[idx0] = temp[idx0] + temp[idx]
+                    temp.remove("'")
+                this_str = ['<BEG>'] + temp + ['<END>']
+                cur_seq = [all_toks.index(s) if s in all_toks \
+                               else 0 for s in this_str]
+                cur_values.append(cur_seq)
+                st = ed + 1
+            ret_seq.append(cur_values)
+        return ret_seq
 

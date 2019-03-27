@@ -164,8 +164,11 @@ def format_dataset(dataset_origin_data, table_origin_data):
         temp['question'] = query["question"]
         temp['query'] = query['query']
         temp['question_tok'] = query['question_toks']
-        # 省去了具体值
         temp['query_tok'] = query['query_toks']
+        # 省去了具体值
+        temp['question_tok_concol'] = query['question_tok_concol']
+        temp['question_type_concol_list'] = query['question_type_concol_list']
+
         temp['table_id'] = query['db_id']
 
         table = tables[temp['table_id']]
@@ -314,7 +317,9 @@ def print_results(model, batch_size, sql_data, table_data, golden_file, output_f
     while st < len(sql_data):
         ed = st+batch_size if st+batch_size < len(perm) else len(perm)
         q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq,\
-         raw_data, col_org_seq, schema_seq = to_batch_seq(sql_data, table_data, perm, st, ed, schemas, ret_vis_data=True)
+         raw_data, col_org_seq, schema_seq, q_type, q_concol_seq = to_batch_seq(sql_data, table_data, perm, st, ed, schemas, ret_vis_data=True)
+
+        raw_q_seq = [x[0] for x in raw_data]
 
         # query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
 
@@ -338,8 +343,8 @@ def print_results(model, batch_size, sql_data, table_data, golden_file, output_f
                              + str(chart_info["x_col"]) + " "
                              + str(chart_info["y_col"]) + "\n")
         else:
-            score = model.forward(q_seq, col_seq, col_num, pred_entry)
-            gen_sqls = model.gen_sql(score, col_org_seq, schema_seq)
+            score = model.forward(q_seq, col_seq, col_num, q_type, q_concol_seq, pred_entry)
+            gen_sqls = model.gen_sql(score, col_org_seq, schema_seq, raw_q_seq, q_seq)
             golden_sqls = [x[2] for x in raw_data]
             db_ids = [x["db_id"] for x in schema_seq]
             for i, sql in enumerate(gen_sqls):
@@ -401,13 +406,14 @@ def to_batch_query(sql_data, perm, st, ed):
 
 def to_batch_seq(sql_data, table_data, idxes, st, ed, schemas, ret_vis_data=False):
     q_seq = []
+    q_concol_seq = []
     col_seq = []
     col_num = []
     ans_seq = []
     query_seq = []
     gt_cond_seq = []
     vis_seq = []
-
+    q_type = []
     col_org_seq = []
     schema_seq = []
 
@@ -415,6 +421,8 @@ def to_batch_seq(sql_data, table_data, idxes, st, ed, schemas, ret_vis_data=Fals
         sql = sql_data[idxes[i]]
         col_org_seq.append(sql['col_original'])
         q_seq.append(sql['question_tok'])
+        q_concol_seq.append(sql['question_tok_concol'])
+        q_type.append(sql['question_type_concol_list'])
         table = table_data[sql['table_id']]
         schema_seq.append(schemas[sql['table_id']])
         col_num.append(len(table['cols']))
@@ -443,9 +451,9 @@ def to_batch_seq(sql_data, table_data, idxes, st, ed, schemas, ret_vis_data=Fals
         vis_seq.append((sql['question'], tab_cols, sql['query']))
 
     if ret_vis_data:
-        return q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, vis_seq, col_org_seq, schema_seq
+        return q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, vis_seq, col_org_seq, schema_seq, q_type, q_concol_seq
     else:
-        return q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, col_org_seq, schema_seq
+        return q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, col_org_seq, schema_seq, q_type, q_concol_seq
 
 
 def epoch_train(model, optimizer, batch_size, sql_data, table_data, schemas, pred_entry):
@@ -456,8 +464,9 @@ def epoch_train(model, optimizer, batch_size, sql_data, table_data, schemas, pre
     st = 0
     while st < len(sql_data):
         ed = st+batch_size if st+batch_size < len(perm) else len(perm)
-        q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, col_org_seq, schema_seq = \
+        q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, col_org_seq, schema_seq, q_type, q_concol_seq = \
             to_batch_seq(sql_data, table_data, perm, st, ed, schemas)
+
         gt_sel_seq = [x[1] for x in ans_seq]
 
         query_gt, _ = to_batch_query(sql_data, perm, st, ed)
@@ -489,8 +498,9 @@ def epoch_train(model, optimizer, batch_size, sql_data, table_data, schemas, pre
             score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num)
             loss = model.loss(score, query_gt)
         else:
-            score = model.forward(q_seq, col_seq, col_num, pred_entry, gt_cond=gt_cond_seq, gt_sel=gt_sel_seq)
-            loss = model.loss(score, ans_seq, pred_entry)
+            gt_where_seq = model.generate_gt_where_seq(q_seq, col_seq, query_seq)
+            score = model.forward(q_seq, col_seq, col_num, q_type, q_concol_seq, pred_entry, gt_where=gt_where_seq, gt_cond=gt_cond_seq, gt_sel=gt_sel_seq)
+            loss = model.loss(score, ans_seq, pred_entry, gt_where_seq)
         cum_loss += loss.data.cpu().numpy().tolist() * (ed - st)
 
         optimizer.zero_grad()
@@ -511,7 +521,7 @@ def epoch_acc(model, batch_size, sql_data, table_data, schemas, pred_entry, erro
     while st < len(sql_data):
         ed = st + batch_size if st+batch_size < len(perm) else len(perm)
         q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, \
-        raw_data, col_org_seq, schema_seq = \
+        raw_data, col_org_seq, schema_seq, q_type, q_concol_seq = \
             to_batch_seq(sql_data, table_data, perm, st, ed, schemas, ret_vis_data=True)
 
         raw_q_seq = [x[0] for x in raw_data]
@@ -548,7 +558,7 @@ def epoch_acc(model, batch_size, sql_data, table_data, schemas, pred_entry, erro
             pred_list = model.gen_chart_info(score, query_seq, sel_col_seq, sel_col_agg)
             one_err, tot_err = model.check_acc(pred_list, query_gt, error_print)
         else:
-            score = model.forward(q_seq, col_seq, col_num, pred_entry)
+            score = model.forward(q_seq, col_seq, col_num, q_type, q_concol_seq, pred_entry)
             pred_queries = model.gen_query(score, q_seq, col_seq, raw_q_seq, raw_col_seq, pred_entry)
             one_err, tot_err = model.check_acc(raw_data, pred_queries, query_gt, pred_entry, error_print)
 
