@@ -60,7 +60,7 @@ class ChartPredictor(nn.Module):
         x_emb_concat = torch.cat((col_emb_var, agg_type_emb), 2)
         # todo: encode the agg
         col_enc, _ = run_lstm(self.col_lstm, x_emb_concat, col_len)
-
+        # col_enc1, _ = col_name_encode(self.col_lstm, col_emb_var, col_name_len, col_len)
         # Predict the type
         att_val_qc = torch.bmm(col_enc, self.type_att(q_enc).transpose(1, 2))
 

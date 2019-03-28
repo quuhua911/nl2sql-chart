@@ -18,7 +18,7 @@ class WordEmbedding(nn.Module):
         self.word_emb = word_emb
 
     # 处理自然语言的q， 获得对应的Embedding
-    def gen_x_batch(self, q, col, is_list=False, is_q=False):
+    def gen_x_batch(self, q, col, is_list=False, is_q=False, is_col=False):
         B = len(q)
         val_embs = []
 
@@ -102,9 +102,13 @@ class WordEmbedding(nn.Module):
                         content = np.zeros(self.N_word)
                     q_val_list[t] = content
                 '''
-                val_embs.append([np.zeros(self.N_word, dtype=np.float32)] + q_val_list + [
-                    np.zeros(self.N_word, dtype=np.float32)])  # <BEG> and <END>
-                val_len[i] = 1 + len(q_val_list) + 1
+                if not is_col:
+                    val_embs.append([np.zeros(self.N_word, dtype=np.float32)] + q_val_list + [
+                        np.zeros(self.N_word, dtype=np.float32)])  # <BEG> and <END>
+                    val_len[i] = 1 + len(q_val_list) + 1
+                else:
+                    val_embs.append(q_val_list)
+                    val_len[i] = len(q_val_list)
             else:
                 q_val_list = list(q_val)
                 val_embs.append(q_val_list)

@@ -29,7 +29,8 @@ def load_data_for_seq(seq, db_id, FAST=True):
     test_seq_json = {
         "db_id": db_id,
         "question": seq,
-        "question_toks": tokens
+        "question_toks": tokens,
+        "question_tok_concol": [[x] for x in tokens]
     }
 
     dir = "data/"
@@ -57,6 +58,7 @@ def load_data_for_seq(seq, db_id, FAST=True):
     # 单个data基本信息
     temp['question'] = query["question"]
     temp['question_tok'] = query['question_toks']
+    temp["question_tok_concol"] = query["question_tok_concol"]
     # 省去了具体值
     temp['table_id'] = query['db_id']
 
@@ -312,6 +314,8 @@ def print_results(model, batch_size, sql_data, table_data, golden_file, output_f
     st = 0
     one_acc_num = 0.0
     tot_acc_num = 0.0
+    err_num = 0
+    tot_num = 0
     output = open(output_file, 'w')
     golden = open(golden_file, "w")
     while st < len(sql_data):
@@ -321,7 +325,7 @@ def print_results(model, batch_size, sql_data, table_data, golden_file, output_f
 
         raw_q_seq = [x[0] for x in raw_data]
 
-        # query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
+        query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
 
         sel_col_seq = []
         sel_col_agg = []
@@ -338,10 +342,19 @@ def print_results(model, batch_size, sql_data, table_data, golden_file, output_f
         if type(model).__name__ == "chartNet":
             score = model.forward(query_seq, sel_col_seq, sel_col_agg, sel_col_num)
             charts = model.gen_chart_info(score, query_seq, sel_col_seq, sel_col_agg)
-            for chart_info in charts:
-                output.write(str(chart_info["type"]) + " "
-                             + str(chart_info["x_col"]) + " "
-                             + str(chart_info["y_col"]) + "\n")
+
+            for i, chart_info in enumerate(charts):
+                gold_str = str(query_gt[i]["type_of_chart"]) + " " \
+                           + str(query_gt[i]["x_col"]) + " " \
+                           + str(query_gt[i]["y_col"]) + "\n"
+                output_str = str(chart_info["type"]) + " " \
+                             + str(chart_info["x_col"]) + " " \
+                             + str(chart_info["y_col"]) + "\n"
+                tot_num += 1
+                if gold_str != output_str:
+                    err_num += 1
+                golden.write(gold_str)
+                output.write(output_str)
         else:
             score = model.forward(q_seq, col_seq, col_num, q_type, q_concol_seq, pred_entry)
             gen_sqls = model.gen_sql(score, col_org_seq, schema_seq, raw_q_seq, q_seq)
@@ -351,6 +364,9 @@ def print_results(model, batch_size, sql_data, table_data, golden_file, output_f
                 golden.write(golden_sqls[i]+"\t"+db_ids[i]+"\n")
                 output.write(sql+"\n")
         st = ed
+    if tot_num != 0:
+        print("Accuracy: " + str((tot_num-err_num)/tot_num))
+
 
 def print_one_chart(model, query_seq, sel_col_seq, sel_col_agg, sel_col_num, output_file):
     model.eval()
@@ -369,9 +385,11 @@ def print_one_result(model, sql_data, table_data, output_file, schemas, pred_ent
     model.eval()
     output = open(output_file, 'w')
 
-    q_seq, col_seq, col_num, col_org_seq, schema_seq = to_one_seq(sql_data, table_data, schemas)
-    score = model.forward(q_seq, col_seq, col_num, pred_entry)
-    gen_sqls = model.gen_sql(score, col_org_seq, schema_seq)
+    q_seq, col_seq, col_num, col_org_seq, schema_seq, raw_data, q_concol_seq = to_one_seq(sql_data, table_data, schemas)
+    raw_q_seq = [x[0] for x in raw_data]
+    q_type = None
+    score = model.forward(q_seq, col_seq, col_num, q_type, q_concol_seq, pred_entry)
+    gen_sqls = model.gen_sql(score, col_org_seq, schema_seq, raw_q_seq, q_seq)
     for sql in gen_sqls:
         output.write(sql+"\n")
     return gen_sqls
@@ -379,20 +397,23 @@ def print_one_result(model, sql_data, table_data, output_file, schemas, pred_ent
 
 def to_one_seq(sql, table_data, schemas):
     q_seq = []
+    q_concol_seq = []
     col_seq = []
     col_num = []
     col_org_seq = []
     schema_seq = []
-
+    raw_data = []
     col_org_seq.append(sql['col_original'])
     q_seq.append(sql['question_tok'])
+    q_concol_seq.append(sql['question_tok_concol'])
     table = table_data[sql['table_id']]
     schema_seq.append(schemas[sql['table_id']])
     col_num.append(len(table['cols']))
     tab_cols = [col[1] for col in table['cols']]
     col_seq.append([x.split(" ") for x in tab_cols])
+    raw_data.append((sql['question'], tab_cols))
 
-    return q_seq, col_seq, col_num, col_org_seq, schema_seq
+    return q_seq, col_seq, col_num, col_org_seq, schema_seq, raw_data, q_concol_seq
 
 
 def to_batch_query(sql_data, perm, st, ed):

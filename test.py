@@ -24,7 +24,7 @@ if __name__ == '__main__':
     TEST_ENTRY = (True, True, True)  # (AGG, SEL, COND)
 
     dataset_dir = "data/"
-    saved_models_dir = "saved_models/"
+    saved_models_dir = "test_saved_models/"
 
     # 加载json文件
     sql_data, table_data, val_sql_data, val_table_data, \
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     print("Loading from group model...")
     model.group_pred.load_state_dict(torch.load(saved_models_dir + "group_models.dump", map_location='cpu'))
     print("Loading from order model...")
-    model.order_pred.load_state_dict(torch.load(saved_models_dir + "order_models.dump", map_location='cpu'))
+    # model.order_pred.load_state_dict(torch.load(saved_models_dir + "order_models.dump", map_location='cpu'))
 
     golden_file = "test_golden.txt"
     predict_file = "output.txt"

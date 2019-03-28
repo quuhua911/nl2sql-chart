@@ -15,7 +15,7 @@ class CondPredictor(nn.Module):
         self.max_col_num = 45
         self.max_tok_num = 200
 
-        self.q_lstm = nn.LSTM(input_size=N_word + N_word, hidden_size=N_h//2,
+        self.q_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
 
@@ -37,7 +37,7 @@ class CondPredictor(nn.Module):
         self.op_out_c = nn.Linear(N_h, N_h)
         self.op_out = nn.Sequential(nn.Tanh(), nn.Linear(N_h, 12)) #to 5
 
-        self.cond_str_lstm = nn.LSTM(input_size=N_word + N_word, hidden_size=N_h // 2,
+        self.cond_str_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h // 2,
                                      num_layers=N_depth, batch_first=True,
                                      dropout=0.3, bidirectional=True)
         self.cond_str_decoder = nn.LSTM(input_size=self.max_tok_num,
@@ -60,13 +60,13 @@ class CondPredictor(nn.Module):
         if gpu:
             self.cuda()
 
-    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_num, col_name_len, x_type_emb_var, gt_cond, gt_where):
+    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_num, col_name_len, gt_cond, gt_where):
         max_q_len = max(q_len)
         max_col_len = max(col_len)
         B = len(q_len)
 
-        q_emb_concat = torch.cat((q_emb_var, x_type_emb_var), 2)
-        q_enc, _ = run_lstm(self.q_lstm, q_emb_concat, q_len)
+        # q_emb_concat = torch.cat((q_emb_var, x_type_emb_var), 2)
+        q_enc, _ = run_lstm(self.q_lstm, q_emb_var, q_len)
         col_enc, _ = col_name_encode(self.col_lstm, col_emb_var, col_name_len, col_len)
 
         # Predict column number: 0-4
@@ -127,7 +127,7 @@ class CondPredictor(nn.Module):
                             self.op_out_c(col_emb)).squeeze()
 
         # Predict the string of conditions
-        h_str_enc, _ = run_lstm(self.cond_str_lstm, q_emb_concat, q_len)
+        h_str_enc, _ = run_lstm(self.cond_str_lstm, q_emb_var, q_len)
         e_cond_col, _ = col_name_encode(self.cond_str_name_enc, col_emb_var, col_name_len, col_len)
 
         if gt_where is not None:

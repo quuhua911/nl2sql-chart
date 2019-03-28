@@ -33,13 +33,13 @@ class chartNet(nn.Module):
 
         # todo:encode the agg
         # x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col)
-        x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col, is_list=True, is_q=True)
+        x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col, is_q=True)
         temp_agg = []
         for i in col_agg:
             the_agg = [AGG_OPS[x] for x in i]
             temp_agg.append(the_agg)
-        agg_type_emb_var, agg_type_len = self.embed_layer.gen_x_batch(temp_agg, col, is_list=True)
-        # col_inp_var, col_name_len, col_len = self.embed_layer.gen_col_batch(col)
+        agg_type_emb_var, agg_type_len = self.embed_layer.gen_x_batch(temp_agg, col, is_col=True)
+        # col_inp_var1, col_name_len, col_len1 = self.embed_layer.gen_col_batch(col)
         col_inp_var, col_len = self.embed_layer.gen_x_batch(col, col, is_list=True)
 
         chart_score = self.chart_pred(x_emb_var, x_len, col_inp_var, col_len, agg_type_emb_var)
@@ -120,21 +120,27 @@ class chartNet(nn.Module):
         B = len(type_score)
 
         ret_lists = []
+        if B == 1:
+            x_col_score_c = [x_col_score_c]
+            y_col_score_c = [y_col_score_c]
         for b in range(B):
             cur_list = {}
 
             type = np.argmax(type_score_c[b])
             cur_list["type"] = type
 
-            x_col = np.argmax(x_col_score_c[b])
-            cur_list["x_col"] = x_col
-
-            y_col = list(np.argsort(-y_col_score_c[b])[:2])
-            if y_col[0] == x_col:
-                cur_list["y_col"] = y_col[1]
+            if type == 0:
+                cur_list["x_col"] = 0
+                cur_list["y_col"] = 0
             else:
-                cur_list["y_col"] = y_col[0]
+                x_col = np.argmax(x_col_score_c[b])
+                cur_list["x_col"] = x_col
 
+                y_col = list(np.argsort(-y_col_score_c[b])[:2])
+                if y_col[0] == x_col:
+                    cur_list["y_col"] = y_col[1]
+                else:
+                    cur_list["y_col"] = y_col[0]
             ret_lists.append(cur_list)
         return ret_lists
 
@@ -163,7 +169,7 @@ class chartNet(nn.Module):
             # x_flag = True
             # y_flag = True
 
-            type_gt = gt_list['type_of_chart']
+            type_gt = int(gt_list['type_of_chart'])
 
             type_pred = pred_list['type']
 
@@ -171,14 +177,14 @@ class chartNet(nn.Module):
                 type_err = type_err + 1
                 good = False
 
-            x_gt = gt_list['x_col']
+            x_gt = int(gt_list['x_col'])
             x_pred = pred_list['x_col']
 
             if x_gt != x_pred:
                 x_col_err = x_col_err + 1
                 good = False
 
-            y_gt = gt_list['y_col']
+            y_gt = int(gt_list['y_col'])
             y_pred = pred_list['y_col']
 
             if y_gt != y_pred:

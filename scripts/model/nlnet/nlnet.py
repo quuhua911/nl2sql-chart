@@ -69,7 +69,7 @@ class NLNet(nn.Module):
         # q部分为分词后组成的list, 因此is_list设置为True
         x_emb_var, x_len = self.embed_layer.gen_x_batch(q_concol_seq, col, is_list=True, is_q=True)
         temp_emb_var, temp_len = self.embed_layer.gen_x_batch(q, col)
-        x_type_emb_var, x_type_len = self.embed_layer.gen_x_batch(q_type, col, is_list=True, is_q=True)
+        # x_type_emb_var, x_type_len = self.embed_layer.gen_x_batch(q_type, col, is_list=True, is_q=True)
         col_inp_var, col_name_len, col_len = self.embed_layer.gen_col_batch(col)
 
         max_x_len = max(x_len)
@@ -77,10 +77,10 @@ class NLNet(nn.Module):
         # gt_sel = None
         # gt_cond = None
 
-        sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len, x_type_emb_var, gt_sel=gt_sel)
-        cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, x_type_emb_var, gt_cond=gt_cond, gt_where=gt_where)
-        group_score = self.group_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, x_type_emb_var)
-        order_score = self.order_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len, x_type_emb_var)
+        sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var, col_len, col_name_len, gt_sel=gt_sel)
+        cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len,  gt_cond=gt_cond, gt_where=gt_where)
+        group_score = self.group_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len)
+        order_score = self.order_pred(x_emb_var, x_len, col_inp_var, col_len, col_num, col_name_len)
 
         return (sel_score, cond_score, group_score, order_score)
 
@@ -242,10 +242,14 @@ class NLNet(nn.Module):
                     continue
 
                 arr = cond_str_score.shape[3]
+                flag = False
 
                 for i in cond_str_truth:
                     if i >= arr:
-                        continue
+                        flag = True
+
+                if flag:
+                    continue
                 cond_str_truth_t = [i - 1 if i > 0 else 0 for i in cond_str_truth]
                 data = torch.from_numpy(np.array(cond_str_truth_t[1:]))
                 if self.gpu:
@@ -255,8 +259,7 @@ class NLNet(nn.Module):
                 str_end = len(cond_str_truth)-1
                 # cond_str_pred [str_end, max_q_len]
                 cond_str_pred = cond_str_score[b, idx, :str_end]
-                print(cond_str_pred)
-                print(cond_str_truth_var)
+
                 loss += (self.CE(cond_str_pred, cond_str_truth_var) \
                          / (len(gt_where) * len(gt_where[b])))
         # -----------loss for group_pred -------------- #
@@ -649,6 +652,21 @@ class NLNet(nn.Module):
         ret_queries = []
         ret_sqls = []
         B = len(sel_num_score)
+        if B == 1:
+            sel_col_score = [sel_col_score]
+            agg_num_score = [agg_num_score]
+            agg_op_score = [agg_op_score]
+            cond_col_score = [cond_col_score]
+            cond_op_score = [cond_op_score]
+            cond_str_score = [cond_str_score]
+            gby_score = [gby_score]
+            hv_score = [hv_score]
+            hv_col_score = [hv_col_score]
+            hv_agg_score = [hv_agg_score]
+            hv_op_score = [hv_op_score]
+            ody_col_score = [ody_col_score]
+            ody_agg_score = [ody_agg_score]
+            ody_par_score = [ody_par_score]
 
         for b in range(B):
             # 对应的字段名
@@ -810,12 +828,12 @@ class NLNet(nn.Module):
             if len(cur_query['conds']) > 0:
                 cur_conds.append("where")
                 for i, cond in enumerate(cur_query['conds']):
-                    cid, oid = cond
+                    cid, oid, sid = cond
                     cur_conds.append([cid, cur_cols[cid][1]])
                     cur_tables[cur_cols[cid][0]].append([cid, cur_cols[cid][1]])
                     cur_conds.append(WHERE_OPS[oid])
                     # todo:VALUE部分!
-                    cur_conds.append(VALUE)
+                    cur_conds.append(sid)
                     if i < cond_num - 1:
                         cur_conds.append("and")
 

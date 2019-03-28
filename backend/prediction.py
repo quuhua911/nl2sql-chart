@@ -13,14 +13,17 @@ from backend import database
 # 封装成前段所需的格式
 def get_final_from_seq(seq, db_id):
     # sql = "select * from Message"
-    sql = "SELECT count(*) FROM head WHERE age  >  56"
+    # sql = "SELECT T1.department_id ,  T1.name ,  count(*) FROM management AS T2 JOIN department AS T1 ON T1.department_id  =  T2.department_id GROUP BY T1.department_id HAVING count(*)  >  1"
     '''
     x_col = 1
     y_col = 5
     types = 1
     '''
-    # sql = predict_one_sql(seq, db_id)
-    db_id = "department_management"
+    # todo: 注意predict_one_sql B为1的情况! predict部分可能有squeeze操作!
+    # seq = "List the creation year, name and budget of each department."
+    # db_id = "department_management"
+    sql = predict_one_sql(seq, db_id)[0]
+
     result = database.select_db(sql, db_id)
     cols = result.keys()
 
@@ -94,10 +97,10 @@ def predict_one_sql(seq, db_id):
     model = NLNet(word_emb, N_word=N_word, gpu=GPU)
 
     # 加载模型参数
-    model.sel_pred.load_state_dict(torch.load("saved_models/sel_models.dump", map_location='cpu'))
-    model.cond_pred.load_state_dict(torch.load("saved_models/cond_models.dump", map_location='cpu'))
-    model.group_pred.load_state_dict(torch.load("saved_models/group_models.dump", map_location='cpu'))
-    model.order_pred.load_state_dict(torch.load("saved_models/order_models.dump", map_location='cpu'))
+    model.sel_pred.load_state_dict(torch.load("test_saved_models/sel_models.dump", map_location='cpu'))
+    model.cond_pred.load_state_dict(torch.load("test_saved_models/cond_models.dump", map_location='cpu'))
+    model.group_pred.load_state_dict(torch.load("test_saved_models/group_models.dump", map_location='cpu'))
+    model.order_pred.load_state_dict(torch.load("test_saved_models/order_models.dump", map_location='cpu'))
 
     # 输出到文件
     output = "output.txt"
@@ -113,11 +116,9 @@ def predict_one_chart(seq, cols):
     if TEST:
         FAST = True
         GPU = False
-        BATCH_SIZE = 20
     else:
         FAST = False
         GPU = True
-        BATCH_SIZE = 64
 
     # 加载用户输入
     query_seq = load_data_for_chart(seq, FAST=FAST)
@@ -151,7 +152,7 @@ def predict_one_chart(seq, cols):
     model = chartNet(word_emb, N_word=N_word, gpu=GPU)
 
     # 加载模型参数
-    # model.chart_pred.load_state_dict(torch.load("saved_models/sel_models.dump", map_location='cpu'))
+    model.chart_pred.load_state_dict(torch.load("test_saved_models/chart_models.dump", map_location='cpu'))
 
     # 输出到文件
     output = "chart_output.txt"

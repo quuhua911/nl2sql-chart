@@ -23,8 +23,8 @@ if __name__ == '__main__':
 
     TEST_ENTRY = (True, True, True)  # (AGG, SEL, COND)
 
-    dataset_dir = "data/processed/"
-    saved_models_dir = "saved_models/"
+    dataset_dir = "data/processed/temp/"
+    saved_models_dir = "test_saved_models/"
 
     # 加载json文件
     sql_data, table_data, val_sql_data, val_table_data, \
@@ -40,4 +40,5 @@ if __name__ == '__main__':
     model.chart_pred.load_state_dict(torch.load(saved_models_dir + "chart_models.dump", map_location='cpu'))
 
     output = "chart_output.txt"
-    print_results(model, BATCH_SIZE, test_sql_data, test_table_data, output, schemas, TEST_ENTRY)
+    golden_file = "test_chart_golden.txt"
+    print_results(model, BATCH_SIZE, test_sql_data, test_table_data, golden_file, output, schemas, TEST_ENTRY)
