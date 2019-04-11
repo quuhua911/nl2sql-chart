@@ -52,7 +52,21 @@ def read_message():
     user_input = request.args['input']
     db_id = request.args['db']
 
-    result = prediction.get_final_from_seq(user_input, db_id)
+    seq_valid = prediction.val_seq(user_input)
+
+    if seq_valid:
+        result = prediction.get_final_from_seq(user_input, db_id)
+    else:
+        result = {
+            "uflag": 0,
+            "content": "Invalid Sentence!",
+            "table": '',
+            "labels": '',
+            "type_of_chart": '',
+            "predicted_x_col": '',
+            "predicted_y_col": '',
+            "xy_data": ''
+        }
     print(result)
     return json.dumps(result)
 

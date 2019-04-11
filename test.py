@@ -11,7 +11,7 @@ if __name__ == '__main__':
     N_word = 300
     B_word = 42
     TEST = True
-
+    has_value = False
     if TEST:
         FAST = True
         GPU = False
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     # 加载预训练的word embedding
     word_emb = load_word_emb('glove/glove.%dB.%dd.txt' % (B_word, N_word), FAST=FAST)
 
-    model = NLNet(word_emb, N_word=N_word, gpu=GPU)
+    model = NLNet(word_emb, N_word=N_word, gpu=GPU, has_value=has_value)
 
     print("Loading from sel model...")
     model.sel_pred.load_state_dict(torch.load(saved_models_dir + "sel_models.dump", map_location='cpu'))
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     print("Loading from group model...")
     model.group_pred.load_state_dict(torch.load(saved_models_dir + "group_models.dump", map_location='cpu'))
     print("Loading from order model...")
-    # model.order_pred.load_state_dict(torch.load(saved_models_dir + "order_models.dump", map_location='cpu'))
+    model.order_pred.load_state_dict(torch.load(saved_models_dir + "order_models.dump", map_location='cpu'))
 
     golden_file = "test_golden.txt"
     predict_file = "output.txt"

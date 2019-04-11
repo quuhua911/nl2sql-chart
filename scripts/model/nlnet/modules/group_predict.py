@@ -14,7 +14,7 @@ class GroupPredictor(nn.Module):
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
 
-        self.col_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
+        self.col_lstm = nn.LSTM(input_size=N_word + N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
 
@@ -56,14 +56,17 @@ class GroupPredictor(nn.Module):
         if gpu:
             self.cuda()
 
-    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_num, col_name_len):
+    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_num, col_name_len, db_emb):
         max_q_len = max(q_len)
         max_col_len = max(col_len)
         B = len(q_len)
 
         # q_emb_concat = torch.cat((q_emb_var, x_type_emb_var), 2)
         q_enc, _ = run_lstm(self.q_lstm, q_emb_var, q_len)
-        col_enc, _ = col_name_encode(self.col_lstm, col_emb_var, col_name_len, col_len)
+        #col_enc, _ = col_name_encode(self.col_lstm, col_emb_var, col_name_len, col_len)
+
+        col_emb_concat = torch.cat((col_emb_var, db_emb), 2)
+        col_enc, _ = run_lstm(self.col_lstm, col_emb_concat, col_len)
 
         # Predict group column number
         gby_num_att = torch.bmm(col_enc, self.gby_num_h(q_enc).transpose(1, 2))

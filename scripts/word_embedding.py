@@ -17,7 +17,7 @@ class WordEmbedding(nn.Module):
 
         self.word_emb = word_emb
 
-    # 处理自然语言的q， 获得对应的Embedding
+    # 处理自然语言的q， 获得对应的Embedding,此时已包括<beg>和<end>
     def gen_x_batch(self, q, col, is_list=False, is_q=False, is_col=False):
         B = len(q)
         val_embs = []

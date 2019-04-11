@@ -16,6 +16,8 @@ if __name__ == '__main__':
     N_word = 300
     B_word = 42
     TEST = True
+    train_continue = False
+    has_value = False
 
     if TEST:
         FAST = True
@@ -32,6 +34,7 @@ if __name__ == '__main__':
     learning_rate = 1e-3
 
     file_dir = "data/"
+    saved_models_dir = "test_saved_models/"
 
     sql_data, table_data, val_sql_data, val_table_data, \
     test_sql_data, test_table_data, schemas, \
@@ -39,8 +42,18 @@ if __name__ == '__main__':
 
     word_emb = load_word_emb('glove/glove.%dB.%dd.txt' % (B_word, N_word), FAST=FAST)
 
-    model = NLNet(word_emb, N_word=N_word, gpu=GPU)
+    model = NLNet(word_emb, N_word=N_word, gpu=GPU, has_value=has_value)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0)
+
+    if train_continue:
+        print("Loading from sel model...")
+        model.sel_pred.load_state_dict(torch.load(saved_models_dir + "sel_models.dump"))
+        print("Loading from cond model...")
+        model.cond_pred.load_state_dict(torch.load(saved_models_dir + "cond_models.dump"))
+        print("Loading from group model...")
+        model.group_pred.load_state_dict(torch.load(saved_models_dir + "group_models.dump"))
+        print("Loading from order model...")
+        model.order_pred.load_state_dict(torch.load(saved_models_dir + "order_models.dump"))
 
     init_acc = epoch_acc(model, BATCH_SIZE, val_sql_data, val_table_data, schemas, TRAIN_ENTRY)
 

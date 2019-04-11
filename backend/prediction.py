@@ -1,6 +1,8 @@
 # -*- coding: UTF-8 -*-
 import json
 import torch
+import itertools
+import nltk
 import datetime
 import argparse
 import numpy as np
@@ -9,6 +11,32 @@ from scripts.model.nlnet.nlnet import NLNet
 from scripts.model.chartnet.chartnet import chartNet, AGG_OPS
 from backend import database
 
+def val_seq(seq):
+    val = True
+    text = nltk.word_tokenize(seq)
+    text_tag = nltk.pos_tag(text)
+
+    # 词数小于5
+    if len(text_tag) < 6:
+        val = False
+
+    # 连续三个词词性相同
+    else:
+        for i in range(len(text_tag)):
+            if i == len(text_tag) - 2:
+                break
+            temp = text_tag[i:i+4]
+
+            flag = temp[0][1]
+
+            err = 0
+            for x in temp:
+                if x[1] == flag:
+                    err += 1
+
+            if err == 3:
+                val = False
+    return val
 
 # 封装成前段所需的格式
 def get_final_from_seq(seq, db_id):
@@ -22,6 +50,7 @@ def get_final_from_seq(seq, db_id):
     # todo: 注意predict_one_sql B为1的情况! predict部分可能有squeeze操作!
     # seq = "List the creation year, name and budget of each department."
     # db_id = "department_management"
+
     sql = predict_one_sql(seq, db_id)[0]
 
     result = database.select_db(sql, db_id)
@@ -67,6 +96,10 @@ def get_final_from_seq(seq, db_id):
     sql_result['type_of_chart'] = type_of_chart
     sql_result['predicted_x_col'] = predicted_x_col
     sql_result['predicted_y_col'] = predicted_y_col
+
+    if type_of_chart == 0:
+       xy_list = []
+
     sql_result["xy_data"] = xy_list
     sql_result['labels'] = labels
     sql_result['table'] = rows_list

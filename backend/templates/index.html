@@ -1,0 +1,474 @@
+<html>
+
+<head>
+    <link href="../static/css/elementUI.css" rel="stylesheet">
+
+    <script src="../static/js/vue.min.js"></script>
+    <script src="../static/js/elementUI.js"></script>
+    <script src="../static/js/axios.min.js"></script>
+    <script src="../static/js/d3.min.js"></script>
+    <script src="../static/js/charts.js"></script>
+    <script src="../static/js/jquery-3.3.1.min.js"></script>
+
+    <style>
+        .el-table td {
+            border: none;
+        }
+
+        .el-table table {
+            border: 0px white solid;
+        }
+
+        #chatContents td:hover {
+            background: none;
+        }
+
+        #chatContents tr:hover {
+            background: none
+        }
+
+        .bubble {
+            font-size: 16px;
+            position: relative;
+            display: inline-block;
+            clear: both;
+            padding: 13px 14px;
+            vertical-align: top;
+            border-radius: 5px;
+        }
+
+        .bubble:before {
+            position: absolute;
+            top: 19px;
+            display: block;
+            width: 8px;
+            height: 6px;
+            content: '\00a0';
+            -webkit-transform: rotate(29deg) skew(-35deg);
+            transform: rotate(29deg) skew(-35deg);
+        }
+
+        .bubble.client {
+            float: left;
+            color: #fff;
+            background-color: powderblue;
+            -webkit-animation-name: slideFromLeft;
+            -webkit-animation-duration: 0.7s;
+            animation-duration: 0.7s;
+            animation-name: slideFromLeft;
+        }
+
+        .bubble.client:before {
+            left: -3px;
+            background-color: powderblue;
+        }
+
+        .bubble.user {
+            float: right;
+            background-color: #eceff1;
+
+            -webkit-animation-name: slideFromRight;
+            -webkit-animation-duration: 0.7s;
+            animation-duration: 0.7s;
+            animation-name: slideFromRight;
+        }
+
+        .bubble.user:before {
+            right: -3px;
+            background-color: #eceff1;
+        }
+
+        .bubble .innerDisplay {
+            margin: -5px
+        }
+
+        #footer input {
+            background-color: #eceff1;
+            border-radius: 5px;
+        }
+
+        .axis text {
+            font: 10px sans-serif;
+        }
+
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #1b1e23;
+            shape-rendering: crispEdges;
+        }
+
+        .bar {
+            fill: steelblue;
+            fill-opacity: .9;
+            text-anchor: start;
+        }
+
+        .contentChart {
+            color: #1b1e23;
+        }
+
+        label {
+            position: absolute;
+            top: 10px;
+            left: 20px;
+        }
+
+        @keyframes slideFromLeft {
+            0% {
+                margin-left: -200px;
+                opacity: 0;
+            }
+
+            100% {
+                margin-left: 0;
+                opacity: 1;
+            }
+        }
+
+        @-webkit-keyframes slideFromLeft {
+            0% {
+                margin-left: -200px;
+                opacity: 0;
+            }
+
+            100% {
+                margin-left: 0;
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideFromRight {
+            0% {
+                margin-right: -200px;
+                opacity: 0;
+            }
+
+            100% {
+                margin-right: 0;
+                opacity: 1;
+            }
+        }
+
+        @-webkit-keyframes slideFromRight {
+            0% {
+                margin-right: -200px;
+                opacity: 0;
+            }
+
+            100% {
+                margin-right: 0;
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+{% raw %}
+<body>
+    <div id="app" style="height:100%">
+        <el-dialog title="Database Info" :visible.sync="dialogFormVisible">
+            <el-form :model="form">
+                <el-form-item label="Server" :label-width="formLabelWidth">
+                    <el-input v-model="form.server" autocomplete="off"></el-input>
+                </el-form-item>
+                <el-form-item label="Database" :label-width="formLabelWidth">
+                    <el-input v-model="form.database"></el-input>
+                </el-form-item>
+                <el-form-item label="Account" :label-width="formLabelWidth">
+                    <el-input v-model="form.account"></el-input>
+                </el-form-item>
+                <el-form-item label="Password" :label-width="formLabelWidth">
+                    <el-input v-model="form.password"></el-input>
+                </el-form-item>
+            </el-form>
+            <div slot="footer" class="dialog-footer">
+                <el-button @click="dialogFormVisible = false">Cancel</el-button>
+                <el-button type="primary" @click="dialogFormVisible = false">OK</el-button>
+            </div>
+        </el-dialog>
+
+        <el-container style="height: 100%">
+            <el-aside>
+
+                <el-table highlight-current-row @current-change="selectBrand" ref="serverTable" :data="tableData"
+                    ow-style="height:55px;" align="center" cell-style="" style="font-size:20px;">
+                    <el-table-column prop="imgPath" width="60px">
+                        <template slot-scope="scope">
+                            <img :src="scope.row.imgPath" alt="" style="width:50px;height: 50px;border-radius: 25%">
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="server" width="200px" align="middle">
+
+                    </el-table-column>
+
+                </el-table>
+
+                <el-button style="padding-left: 20px;visibility: hidden" type="text" @click="dialogFormVisible = true">
+                    Click it
+                </el-button>
+
+            </el-aside>
+            <el-container style="border-left:#EBEFF1 solid 1px">
+                <el-header style="background: #EBEFF1;">
+                    <div style="vertical-align: center;padding:1%">
+                        <template>
+                            Database:
+                            <el-select @change="changeDB" v-model="db_value">
+                                <el-option v-for="item in options" :key="item.value" :label="item.label"
+                                    :value="item.value">
+                                </el-option>
+                            </el-select>
+                        </template>
+                    </div>
+                </el-header>
+                <el-main>
+                    <el-table :data="chatContents" style="width:98%;" id="chatContents">
+                        <el-table-column prop="content">
+                            <template slot-scope="scope">
+                                <div class="bubble" :class="scope.row.uflag==0?'client':'user'"
+                                    style="border-radius: 7px">
+                                    {{scope.row.content}}
+                                    <div class="contentTable innerDisplay"
+                                        :style="{display:scope.row.isTable == true && scope.row.uflag == 0? 'block':'none'}">
+                                        <el-table :data="scope.row.table">
+                                            <template v-for="col in colLabels">
+                                                <el-table-column :label="col.label" :prop="col.label"
+                                                    show-overflow-tooltip="true" width="150px">
+
+                                                </el-table-column>
+                                            </template>
+                                        </el-table>
+                                    </div>
+                                    <br>
+                                    <div class="contentChart innerDisplay"
+                                        :style="{display:scope.row.isChart == true && scope.row.uflag == 0? 'block':'none'}">
+                                        <div :class="scope.row.chartType == '1'? 'chart-1':'chart-2'">
+                                            <label style="display:none"><input type="checkbox">Sort Values</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                    <span id="msg_end" style="overflow:hidden"></span>
+                </el-main>
+                <el-footer id="footer">
+                    <div style="margin-top: 15px;">
+                        <el-input placeholder="Enter the question" v-model="message">
+                            <template slot="append">
+                                <el-button type="primary" @click="send" icon="el-icon-back">Send</el-button>
+                            </template>
+                        </el-input>
+                    </div>
+                </el-footer>
+            </el-container>
+        </el-container>
+    </div>
+</body>
+
+{% endraw %}
+
+
+
+<script>
+    //const axios = require('axios')
+
+    var Main = {
+        mounted() {
+            this.$refs.serverTable.setCurrentRow(this.$refs.serverTable.data[0]);
+            this.currentContract = this.$refs.serverTable.data[0];
+            this.loadDB();
+        },
+        data() {
+            return {
+                //db情况
+                options: [],
+                db_value: '',
+                //模态框情况
+                dialogFormVisible: false,
+                form: {
+                    server: '',
+                    database: '',
+                    account: '',
+                    password: ''
+                },
+                formLabelWidth: '120px',
+
+
+                //侧边栏情况
+                currentContract: "",
+                tableData: [{
+
+                    server: "",
+                    database: "",
+                    account: "",
+                    imgPath: 'https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1550729193016&di=0efad2ad244414085b7930bf8bce2b5b&imgtype=0&src=http%3A%2F%2Fpic.51yuansu.com%2Fpic2%2Fcover%2F00%2F33%2F41%2F58112178c583f_610.jpg'
+                }],
+
+                //聊天输入信息
+                message: '',
+
+                colLabels: [
+                    // { "label": "UID" },
+                    // { "label": "Maths" },
+                    // { "label": "English" }
+                ],
+                //聊天显示信息
+                chatContents: [{
+                    //标识发送方
+                    uflag: 0,
+                    //标识内容
+                    content: "Type in the question and i'll search the database for you!",
+                    //标识table内容
+                    isTable: false,
+                    table: null,
+
+                    //标识chart内容
+                    isChart: false,
+                    chartType: 0,
+                    chart: null
+                }
+                ]
+            }
+        },
+        methods: {
+            loadDB() {
+                const __this = this
+                axios.get('http://127.0.0.1:5000/dbs', {
+                    params: {
+
+                    }
+                })
+                    .then(function (response) {
+                        var messageJson = response.data;
+                        //var messageJson = JSON.parse(messageString);
+                        var responseMessage = []
+                        for (let index = 0; index < messageJson.length; index++) {
+                            option = messageJson[index]
+                            responseMessage.push(option)
+                            __this.options.push(option)
+                        }
+                        return responseMessage
+                    })
+                    .then(function (result) {
+                        __this.db_value = result[0]["value"]
+                        __this.tableData[0]["server"] = __this.db_value
+                    })
+            },
+            handleClose(done) {
+                this.$confirm('content', 'title', {
+                    confirmButtonText: 'confirm',
+                    cancelButtonText: 'cancel',
+                    type: 'warning'
+                }).then(() => {
+
+                }).catch(() => { });
+            },
+            changeDB() {
+                this.tableData[0]["server"] = this.db_value
+                this.chatContents.splice(1, this.chatContents.length - 1)
+            },
+            send() {
+                //聊天窗口底部的隐藏板块
+                var hid = document.getElementById("msg_end");
+                //var processed = false
+                var newMessage = {
+                    uflag: 1,
+                    content: this.message
+                }
+                this.chatContents.push(newMessage);
+
+                //滚动到底部
+                hid.scrollIntoView();
+
+                const __this = this
+
+                //this.message=''
+                axios.get('http://127.0.0.1:5000/', {
+                    params: {
+                        'input': this.message,
+                        'db': this.db_value
+                    }
+                })
+                    .then(function (response) {
+                        var messageJson = response.data;
+                        //var messageJson = JSON.parse(messageString);
+                        var responseMessage = {}
+                        responseMessage["uflag"] = messageJson.uflag;
+                        responseMessage["content"] = messageJson.content;
+                        responseMessage["isTable"] = false
+                        responseMessage["isChart"] = false
+
+                        if (messageJson.table.length >= 1) {
+                            responseMessage["isTable"] = true
+                            responseMessage["table"] = messageJson.table
+                        }
+
+                        type = messageJson.type_of_chart
+                        if (type != 0) {
+                            responseMessage["isChart"] = true
+                            responseMessage["chartType"] = type
+                            responseMessage["chart"] = messageJson.xy_data
+                        }
+                        __this.colLabels = []
+                        for (let index = 0; index < messageJson.labels.length; index++) {
+                            __this.colLabels.push(messageJson.labels[index]);
+                        }
+                        __this.chatContents.push(responseMessage)
+                        __this.message = ''
+
+
+                        hid.scrollIntoView();
+                        return [responseMessage, messageJson.labels, messageJson.predicted_x_col, messageJson.predicted_y_col]
+                    })
+                    //多一层更新表格
+                    .then(function (result) {
+                        responseMessage = result[0]
+                        labels = result[1]
+                        predicted_x_col = result[2]
+                        predicted_y_col = result[3]
+                        var type = responseMessage['chartType']
+                        var userData = responseMessage['chart']
+                        var x_col = labels[predicted_x_col].label;
+                        var y_col = labels[predicted_y_col].label;
+                        if (type == '1') {
+                            drawBars(".chart-1", userData, x_col, y_col)
+                        }
+                        else if (type == '2') {
+                            drawLines(".chart-2", userData, x_col, y_col)
+                        }
+
+
+
+                    })
+                    .catch(function (error) {
+                        var responseMessage = {}
+                        responseMessage["uflag"] = 0;
+                        responseMessage["content"] = "Parsing Error!";
+                        responseMessage["isTable"] = false
+                        responseMessage["isChart"] = false
+
+                        //__this.chatContents.push(responseMessage)
+                        //__this.message = ''
+
+
+                        //hid.scrollIntoView();
+                    });
+
+            },
+            selectBrand() {
+                console.log("click")
+            }
+        }
+    }
+    var Ctor = Vue.extend(Main)
+    new Ctor().$mount('#app')
+    window.onload = function () {
+        test();
+        //drawBars(".chart", null)
+        //drawLines(".chart", null)
+    };
+</script>
+
+</html>

@@ -23,7 +23,7 @@ class SelPredictor(nn.Module):
                               dropout=0.3, bidirectional=True)
 
         # col word embedding
-        self.col_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
+        self.col_lstm = nn.LSTM(input_size=N_word + N_word, hidden_size=N_h//2,
                               num_layers=N_depth, batch_first=True,
                               dropout=0.3, bidirectional=True)
 
@@ -72,7 +72,7 @@ class SelPredictor(nn.Module):
             self.cuda()
 
     # todo:gt_sel?
-    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_name_len, gt_sel):
+    def forward(self, q_emb_var, q_len, col_emb_var, col_len, col_name_len, db_emb, gt_sel):
         max_q_len = max(q_len)
         max_col_len = max(col_len)
 
@@ -84,7 +84,13 @@ class SelPredictor(nn.Module):
         # q_enc, _ = run_lstm(self.q_lstm, q_emb_var, q_len)
         q_enc, _ = run_lstm(self.q_lstm, q_emb_var, q_len)
         # Encode col
-        col_enc, _ = col_name_encode(self.col_lstm, col_emb_var, col_name_len, col_len)
+
+        # 加入全局信息
+        col_emb_concat = torch.cat((col_emb_var, db_emb), 2)
+        col_enc, _ = run_lstm(self.col_lstm, col_emb_concat, col_len)
+
+        # 未加入数据库全局信息情况
+        # col_enc, _ = col_name_encode(self.col_lstm, col_emb_var, col_name_len, col_len)
 
         '''
             Predict col num
