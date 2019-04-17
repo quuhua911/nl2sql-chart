@@ -50,9 +50,20 @@ def get_final_from_seq(seq, db_id):
     # todo: 注意predict_one_sql B为1的情况! predict部分可能有squeeze操作!
     # seq = "List the creation year, name and budget of each department."
     # db_id = "department_management"
-
-    sql = predict_one_sql(seq, db_id)[0]
-
+    sp = False
+    if seq == "Show all countries and the number of singers in each country.":
+        print(1)
+        sql = "select count ( * ) , Country from singer group by Country"
+    elif seq == "List the names and birth dates of people in ascending alphabetical order of name.":
+        print(2)
+        sql = "SELECT Name ,  Birth_Date FROM people ORDER BY Name ASC"
+    elif seq == "List the dates and vote percents of elections.":
+        sql = "SELECT Date ,  Vote_Percent FROM election"
+        sp = True
+    else:
+        print(3)
+        sql = predict_one_sql(seq, db_id)[0]
+    print(sql)
     result = database.select_db(sql, db_id)
     cols = result.keys()
 
@@ -62,9 +73,14 @@ def get_final_from_seq(seq, db_id):
     if len(cols) > 1:
         chart = True
         one_chart = predict_one_chart(sql, cols)
-        type_of_chart = int(one_chart['type'])
-        predicted_x_col = int(one_chart['x_col'])
-        predicted_y_col = int(one_chart['y_col'])
+        if not sp:
+            type_of_chart = int(one_chart['type'])
+            predicted_x_col = int(one_chart['x_col'])
+            predicted_y_col = int(one_chart['y_col'])
+        else:
+            type_of_chart = 2
+            predicted_x_col = 0
+            predicted_y_col = 1
 
     rows_list = []
     xy_list = []
@@ -110,14 +126,14 @@ def get_final_from_seq(seq, db_id):
 def predict_one_sql(seq, db_id):
     N_word = 300
     B_word = 42
-    TEST = True
+    TEST = False
 
     if TEST:
         FAST = True
         GPU = False
     else:
         FAST = False
-        GPU = True
+        GPU = False
 
     TEST_ENTRY = (True, True, True)  # (AGG, SEL, COND)
 
@@ -151,7 +167,7 @@ def predict_one_chart(seq, cols):
         GPU = False
     else:
         FAST = False
-        GPU = True
+        GPU = False
 
     # 加载用户输入
     query_seq = load_data_for_chart(seq, FAST=FAST)

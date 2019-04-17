@@ -44,6 +44,7 @@ def read_dbs():
         temp["value"] = file
         temp["label"] = file
         options.append(temp)
+    options.sort(key=lambda x: x['value'])
     return json.dumps(options)
 
 @app.route('/')

@@ -50,7 +50,7 @@
 
         .bubble.client {
             float: left;
-            color: #fff;
+            color: #000;
             background-color: powderblue;
             -webkit-animation-name: slideFromLeft;
             -webkit-animation-duration: 0.7s;
@@ -161,6 +161,10 @@
                 opacity: 1;
             }
         }
+        .el-input__inner,
+        .el-table .cell{
+            font-size:24px
+        }
     </style>
 </head>
 
@@ -192,7 +196,7 @@
             <el-aside>
 
                 <el-table highlight-current-row @current-change="selectBrand" ref="serverTable" :data="tableData"
-                    ow-style="height:55px;" align="center" cell-style="" style="font-size:20px;">
+                    ow-style="height:55px;" align="center" cell-style="" style="font-size:32px;">
                     <el-table-column prop="imgPath" width="60px">
                         <template slot-scope="scope">
                             <img :src="scope.row.imgPath" alt="" style="width:50px;height: 50px;border-radius: 25%">
@@ -211,12 +215,12 @@
             </el-aside>
             <el-container style="border-left:#EBEFF1 solid 1px">
                 <el-header style="background: #EBEFF1;">
-                    <div style="vertical-align: center;padding:1%">
+                    <div style="vertical-align: center;padding:1%;font-size:32px">
                         <template>
                             Database:
-                            <el-select @change="changeDB" v-model="db_value">
+                            <el-select @change="changeDB" v-model="db_value" font-size="24px" style="font-size:24px">
                                 <el-option v-for="item in options" :key="item.value" :label="item.label"
-                                    :value="item.value">
+                                    :value="item.value" font-size="24px" style="font-size:24px">
                                 </el-option>
                             </el-select>
                         </template>
@@ -227,14 +231,14 @@
                         <el-table-column prop="content">
                             <template slot-scope="scope">
                                 <div class="bubble" :class="scope.row.uflag==0?'client':'user'"
-                                    style="border-radius: 7px">
+                                    style="border-radius: 7px;font-size:32px">
                                     {{scope.row.content}}
                                     <div class="contentTable innerDisplay"
                                         :style="{display:scope.row.isTable == true && scope.row.uflag == 0? 'block':'none'}">
-                                        <el-table :data="scope.row.table">
+                                        <el-table :data="scope.row.table" font-size="32px" style="font-size:24px">
                                             <template v-for="col in colLabels">
                                                 <el-table-column :label="col.label" :prop="col.label"
-                                                    show-overflow-tooltip="true" width="150px">
+                                                    show-overflow-tooltip="true" width="300px" font-size="32px" style="font-size:24px">
 
                                                 </el-table-column>
                                             </template>
@@ -257,7 +261,7 @@
                     <div style="margin-top: 15px;">
                         <el-input placeholder="Enter the question" v-model="message">
                             <template slot="append">
-                                <el-button type="primary" @click="send" icon="el-icon-back">Send</el-button>
+                                <el-button type="primary" @click="send" icon="el-icon-back" font-size="32px">Send</el-button>
                             </template>
                         </el-input>
                     </div>
@@ -415,7 +419,10 @@
                         for (let index = 0; index < messageJson.labels.length; index++) {
                             __this.colLabels.push(messageJson.labels[index]);
                         }
-                        __this.chatContents.push(responseMessage)
+                        if (messageJson.content != 'Invalid Sentence!' && messageJson.table.length != 0){
+                            __this.chatContents.push(responseMessage)
+
+                        }
                         __this.message = ''
 
 
@@ -438,9 +445,6 @@
                         else if (type == '2') {
                             drawLines(".chart-2", userData, x_col, y_col)
                         }
-
-
-
                     })
                     .catch(function (error) {
                         var responseMessage = {}
@@ -449,8 +453,8 @@
                         responseMessage["isTable"] = false
                         responseMessage["isChart"] = false
 
-                        //__this.chatContents.push(responseMessage)
-                        //__this.message = ''
+                        __this.chatContents.push(responseMessage)
+                        __this.message = ''
 
 
                         //hid.scrollIntoView();
