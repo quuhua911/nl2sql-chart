@@ -72,7 +72,7 @@ class NLNet(nn.Module):
         # x_type_emb_var, x_type_len = self.embed_layer.gen_x_batch(q_type, col, is_list=True, is_q=True)
 
         # 1.未加入全局信息
-        # col_inp_var, col_name_len, col_len = self.embed_layer.gen_col_batch(col)
+        col_inp_var1, col_name_len1, col_len1 = self.embed_layer.gen_col_batch(col)
 
         db_emb, _ = self.embed_layer.gen_x_batch(schema, col, is_list=True)
         col_inp_var, col_len = self.embed_layer.gen_x_batch(col, col, is_list=True)
